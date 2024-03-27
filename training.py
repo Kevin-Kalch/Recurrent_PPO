@@ -1,14 +1,19 @@
 from collections import deque
 import gymnasium
 import torch
-from model import PPO
+from model import PPO, Memory
 import numpy as np
+import cProfile
+import pstats
 torch.manual_seed(4020)
+import pickle
+from gymnasium.wrappers import TimeAwareObservation
 
 def create_envs(num=4):
     envs = []
     for i in range(num):
         env = VelHidden(gymnasium.make('LunarLander-v2'))
+        #env = gymnasium.make("BipedalWalker-v3")
         envs.append(env)
     return envs
 
@@ -27,6 +32,7 @@ def main():
         for i, env in enumerate(envs)
     ]
     agent = PPO(obs_dim, action_num, steps_per_env)
+    # Es braucht viele Episoden bis die Policy stabil ist
 
     collect_steps = steps_per_env*num_envs  
     rewards = deque(maxlen=32)
@@ -84,7 +90,7 @@ def main():
                     break
         
         if epoch >= 5:
-            agent.train_epochs_bptt_3()
+            agent.train_epochs_bptt()
             
             # Recaclulate most recent hidden state
             for env_info in env_infos:
@@ -113,12 +119,70 @@ def main():
              next_state, reward, truncated, terminated, info = test_env.step(action)
              state = next_state
              ep_reward += reward
-             if truncated or terminated:
+             if truncated or terminated: # info["real_done"]:
                  break
+        #rewards.appendleft(ep_reward)
         print("Epoch " + str(epoch) + "/" + str(num_epochs) + " Avg. Reward: " + str(sum(rewards)/len(rewards)) + " " + str(ep_reward))
 
         if epoch % 10 == 0:
             agent.save_model("SpaceInvaders-v5-agent_" + str(epoch))
+
+
+
+class RunningMeanStd(object):
+    def __init__(self, epsilon=1e-4, shape=()):
+        self.mean = np.zeros(shape, 'float64')
+        self.var = np.ones(shape, 'float64')
+        self.count = epsilon
+
+    def update(self, x):
+        batch_mean = np.mean(x, axis=0)
+        batch_var = np.var(x, axis=0)
+        self.update_from_moments(batch_mean, batch_var, len(x))
+
+    def update_from_moments(self, batch_mean, batch_var, batch_count):        
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * self.count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / tot_count
+        new_var = M2 / (tot_count - 1)
+        new_count = tot_count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = new_count
+
+
+class EpisodicLifeEnv(gymnasium.Wrapper[np.ndarray, int, np.ndarray, int]):
+    """
+    Make end-of-life == end-of-episode, but only reset on true game over.
+    Done by DeepMind for the DQN and co. since it helps value estimation.
+
+    :param env: Environment to wrap
+    """
+
+    def __init__(self, env: gymnasium.Env) -> None:
+        super().__init__(env)
+        self.lives = 0
+        self.was_real_done = True
+
+    def step(self, action: int):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        self.was_real_done = terminated or truncated
+        # check current lives, make loss of life terminal,
+        # then update lives to handle bonus lives
+        lives = self.env.unwrapped.ale.lives()  # type: ignore[attr-defined]
+        if 0 < lives < self.lives:
+            # for Qbert sometimes we stay in lives == 0 condition for a few frames
+            # so its important to keep lives > 0, so that we only reset once
+            # the environment advertises done.
+            terminated = True
+        self.lives = lives
+        info['real_done'] = self.was_real_done
+        return obs, reward, terminated, truncated, info
 
 class VelHidden(gymnasium.ObservationWrapper):
     def observation(self, obs):
@@ -126,7 +190,17 @@ class VelHidden(gymnasium.ObservationWrapper):
         return obs
 
 
+    
+
 if __name__ == '__main__':
+    #torch.autograd.set_detect_anomaly(True)
     torch.set_num_threads(4)
     torch.set_float32_matmul_precision('high')
+    
+    
     main()
+    # profiler.disable()
+    # with open("output.txt", "w+") as f:
+    #     stats = pstats.Stats(profiler, stream=f).sort_stats('cumtime')
+    #     stats = stats.strip_dirs()
+    #     stats.sort_stats('cumtime').print_stats()
