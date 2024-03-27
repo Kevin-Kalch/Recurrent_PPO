@@ -1,0 +1,15 @@
+box2d-py==2.3.5
+contourpy==1.2.0
+cycler==0.12.1
+fonttools==4.50.0
+gymnasium==0.29.1
+kiwisolver==1.4.5
+mss==9.0.1
+packaging==24.0
+pip-chill==1.0.3
+pygame==2.5.2
+pyparsing==3.1.2
+python-dateutil==2.9.0.post0
+swig==4.2.1
+torchaudio==2.2.1
+torchvision==0.17.1
