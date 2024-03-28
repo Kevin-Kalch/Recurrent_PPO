@@ -46,13 +46,14 @@ def main():
         #     profiler.enable()
         exp_collected = 0
         obs = []
+        env_steps = []
         while exp_collected < collect_steps:
             for env_info in env_infos:
                 if env_info["state"] is None:
                     env_info["state"], _ = env_info["env"].reset()
                     env_info["ep_reward"] = 0
 
-                
+                env_steps.append(exp_collected // len(env_infos))
                 action, action_prop, new_h = agent.select_action(env_info["state"], env_info["hidden_state"])
                 next_state, reward, terminated, truncated, info = env_info["env"].step(action)
                 agent_reward = reward
@@ -88,7 +89,6 @@ def main():
                     break
             if exp_collected > collect_steps:
                     break
-        
         if epoch >= 5:
             agent.train_epochs_bptt()
             
@@ -96,7 +96,7 @@ def main():
             for env_info in env_infos:
                 if env_info["hidden_state"] is not None:
                     state = agent.memory[env_info["env_id"]].state[-1].unsqueeze(0).to(agent.device)
-                    h_state = agent.memory[env_info["env_id"]].hidden_state[-1].unsqueeze(0).to(agent.device)
+                    h_state = agent.memory[env_info["env_id"]].hidden_state[-2].unsqueeze(0).to(agent.device)
                     _, _, new_h = agent.model(state, h_state)
                     env_info["hidden_state"] = new_h.detach().cpu()
             agent.memory = {}

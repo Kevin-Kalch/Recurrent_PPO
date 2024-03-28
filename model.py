@@ -21,11 +21,7 @@ class ACNetwork(nn.Module):
             self.init_weights(nn.Linear(128+16, 128)), # 128 RAM
             nn.LeakyReLU(),
         )
-        self.rnn = nn.Sequential(
-            nn.Linear(128+16, 16),
-            nn.Tanh(),
-            nn.LayerNorm(16)
-        )
+        self.rnn = nn.GRUCell(128, 16)
 
         self.policy = nn.Sequential(
             self.init_weights(nn.Linear(128, 64), std=0.01),
@@ -45,7 +41,7 @@ class ACNetwork(nn.Module):
             h = torch.zeros((obs.size(0), 16))
         body_out = self.body(obs)
         core_out = self.core(torch.concat((body_out, h), dim=1))
-        h_new = self.rnn(torch.concat((core_out, h), dim=1))
+        h_new = self.rnn(core_out, h)
         return self.policy(core_out), self.value(core_out), h_new
     
     def get_action(self, obs, h):
@@ -53,7 +49,7 @@ class ACNetwork(nn.Module):
             h = torch.zeros((obs.size(0), 16))
         body_out = self.body(obs)
         core_out = self.core(torch.concat((body_out, h), dim=1))
-        h_new = self.rnn(torch.concat((core_out, h), dim=1))
+        h_new = self.rnn(core_out, h)
 
         policy_out = self.policy(core_out)
         return policy_out, h_new
@@ -63,7 +59,7 @@ class ACNetwork(nn.Module):
             h = torch.zeros((obs.size(0), 16))
         body_out = self.body(obs)
         core_out = self.core(torch.concat((body_out, h), dim=1))
-        h_new = self.rnn(torch.concat((core_out, h), dim=1))
+        h_new = self.rnn(core_out, h)
         value_out = self.value(core_out)
         return value_out, h_new
     
@@ -75,7 +71,7 @@ class ACNetwork(nn.Module):
 class Memory:
     def __init__(self, num_samples, state_size, num_actions):
         self.state = torch.zeros((num_samples, state_size), dtype=torch.float32)
-        self.hidden_state = torch.zeros((num_samples, 16), dtype=torch.float32)
+        self.hidden_state = torch.zeros((num_samples+1, 16), dtype=torch.float32)
         self.action = torch.zeros(num_samples, dtype=torch.long)
         self.reward = torch.zeros(num_samples, dtype=torch.float32)
         self.next_state = torch.zeros((num_samples, state_size), dtype=torch.float32)
@@ -118,10 +114,10 @@ class PPO(nn.Module):
         self.state_size = num_in
         self.obs_max = nn.Parameter(torch.ones((num_in), dtype=torch.float32), requires_grad=False)
         self.obs_max[:] = 1
-        self.target_kl = 0.05
+        self.target_kl = 0.01 #0.01
         self.beta = 3
         self.num_actions = num_actions
-        self.burn_in_steps = 4
+        self.burn_in_steps = 2
 
     @torch.no_grad()
     def select_action(self, state, h):
@@ -177,7 +173,7 @@ class PPO(nn.Module):
         #dones = dones.to(self.device)
 
         rnd = Random()
-        batch_seq_length = 16
+        batch_seq_length = 10
         
         num_samples = len(states.flatten(0,1))
         idx = np.arange(num_samples)
@@ -208,28 +204,40 @@ class PPO(nn.Module):
         
         continue_training = True
         norms = []
-        for epoch in range(10):
+        for epoch in range(5):
             h = hidden_states[:, 0, :]
             values = []
             next_values = []
+            kl_divs=[]
             with torch.no_grad():
                 for i in range(128): # seq length, :]
                     probs, value, h = self.model(states[:, i, :], hidden_states[:, i, :])
-                    next_value, _ = self.model.get_value(next_states[:, i, :], h)
+                    next_value, h_n = self.model.get_value(next_states[:, i, :], h)
                     
                     values.append(value.squeeze())
                     next_values.append(next_value.squeeze())
 
-                    if i != (128 - 1):
+                    if i != (128):
                         done_mask = (dones[:, i] == True).to(self.device)
                         not_done_mask = (dones[:, i] == False).to(self.device)
                         # h = (h * not_done_mask[:, None]) + (hidden_states[:, i+1, :] * done_mask[:, None])
                         # hidden_states[:, i+1, :] = h 
                         h[done_mask] = hidden_states[done_mask, i+1, :]
-                        hidden_states[not_done_mask, i+1, :] = h[not_done_mask] 
-            if epoch == 9 or continue_training == False:
+                        hidden_states[not_done_mask, i+1, :] = h[not_done_mask]
+            #         kl_div = torch.nn.functional.kl_div(torch.log(probs), old_probs[:, i, :], reduction="batchmean") # Targets should be probs, input in log space
+            #         kl_divs.append(kl_div)
+            # if epoch == 4:
+            #     kl_divs = torch.stack(kl_divs).cpu().mean()
+            #     if kl_divs < self.target_kl/1.5:
+            #         self.beta = self.beta / 2
+            #     if kl_divs > self.target_kl*1.5:
+            #         self.beta = self.beta * 2
+
+            #    print(str(self.beta) + " " + str(kl_divs.item()))
+            if epoch == 4 or continue_training == False:
+                for i, key in enumerate(self.memory.keys()):
+                    self.memory[key].hidden_state = hidden_states[i].cpu()
                 break
-                
 
             values = torch.stack(values, dim=1).cpu()
             next_values = torch.stack(next_values, dim=1).cpu()
@@ -258,7 +266,8 @@ class PPO(nn.Module):
                     if i < self.burn_in_steps:
                         h = h.detach()
                         continue
-
+                    
+                    #ep_advantages[states_idx[:, i]] = (ep_advantages[states_idx[:, i]] - ep_advantages[states_idx[:, i]].mean()) / (ep_advantages[states_idx[:, i]].std() + 1e-8)
 
                     log_probs = torch.log(torch.gather(probs, -1, ep_actions[states_idx[:, i]][..., None])) 
                     ent = -(probs * torch.log(probs)).sum(dim=-1)
@@ -273,15 +282,15 @@ class PPO(nn.Module):
 
                     kl_div = torch.nn.functional.kl_div(torch.log(probs), b_old_probs, reduction="batchmean") # Targets should be probs, input in log space
                     
-                    policy_loss = (torch.min(surr1, surr2)).mean()# - self.beta* kl_div
+                    policy_loss = (torch.min(surr1, surr2)).mean() - 3 * kl_div
 
 
-                    pred_value_clipped = ep_returns[states_idx[:, i]] + torch.clamp(pred_value - ep_returns[states_idx[:, i]], -1.0, 1.0)
-                    value_loss = 0.5 * (pred_value_clipped-ep_returns[states_idx[:, i]]).pow(2).mean()
-                    #value_loss = 0.5*(pred_value-ep_returns[states_idx[:, i]]).pow(2).mean()
+                    #pred_value_clipped = ep_returns[states_idx[:, i]] + torch.clamp(pred_value - ep_returns[states_idx[:, i]], -1.0, 1.0)
+                    #value_loss = 0.5 * (ep_returns[states_idx[:, i]]-pred_value_clipped).pow(2).mean()
+                    value_loss = 0.5*(ep_returns[states_idx[:, i]]-pred_value).pow(2).mean()
                     entropy_loss = -torch.clamp(ent, max=1.).mean()
 
-                    loss = -(policy_loss - 0.5*value_loss + 1e-3 * entropy_loss)
+                    loss = -(policy_loss - 1.0*value_loss + 1e-3 * entropy_loss)
                     total_loss += loss / batch_seq_length
                     #loss = loss / batch_seq_length
                     #loss.backward(retain_graph=True)
@@ -303,13 +312,13 @@ class PPO(nn.Module):
                     deviations = torch.mean(torch.abs(torch.exp(log_ratio) - 1)).cpu().numpy()
 
                     kl_div = torch.nn.functional.kl_div(torch.log(seq_probs[self.burn_in_steps:].flatten(0,1)), b_old_probs[self.burn_in_steps:].flatten(0,1), reduction="batchmean")
-                    if self.target_kl is not None and abs(kl_div) > 1.5 * self.target_kl:
+                    if self.target_kl is not None and abs(kl_div) > 1.5 * 0.01:
                         continue_training = False
                         print(f"Early stopping due to reaching max kl: {kl_div:.2f}, aprox kl: {approx_kl_div:.2f}")
                         break
                 
                 
-                
+                self.optimizer.zero_grad()
                 total_loss.backward()
                 total_norm = 0
                 for p in self.model.parameters():
@@ -321,7 +330,7 @@ class PPO(nn.Module):
 
                 torch.nn.utils.clip_grad.clip_grad_norm_(self.model.parameters(), 0.5)
                 self.optimizer.step()
-                self.optimizer.zero_grad()
+                
         print("Policy Loss: " + str(sum(policy_losses) / len(policy_losses)) + " Value Loss: " + str(sum(value_losses) / len(value_losses)) + " Ent Loss: " + str(sum(ents) / len(ents)))
         if len(norms) > 0:
             print(f"{np.min(norms)} {np.mean(norms)} {np.max(norms)}")

@@ -10,7 +10,7 @@ def main():
     obs_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
     agent = PPO(obs_dim, action_num, 1)
-    agent.load_model("SpaceInvaders-v5-agent_850")
+    agent.load_model("SpaceInvaders-v5-agent_130")
     while True:
         state, _ = env.reset()
         env.render()
