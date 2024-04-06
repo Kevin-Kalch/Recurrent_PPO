@@ -1,0 +1,583 @@
+         19626286 function calls (19051041 primitive calls) in 71.877 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        4    9.284    2.321   52.172   13.043 model.py:177(train_epochs_bptt)
+250893/37959    0.547    0.000   23.750    0.001 module.py:1507(_wrapped_call_impl)
+250893/37959    1.009    0.000   23.653    0.001 module.py:1513(_call_impl)
+       64    0.001    0.000   19.081    0.298 _tensor.py:463(backward)
+       64    0.001    0.000   19.080    0.298 __init__.py:164(backward)
+       64   19.073    0.298   19.073    0.298 {method 'run_backward' of 'torch._C._EngineBase' objects}
+    33329    0.921    0.000   17.233    0.001 container.py:215(forward)
+     4539    0.052    0.000   15.755    0.003 _contextlib.py:112(decorate_context)
+     4411    0.523    0.000   15.557    0.004 model.py:145(select_action)
+     3104    0.389    0.000   13.730    0.004 model.py:59(forward)
+    99987    0.522    0.000   10.071    0.000 linear.py:115(forward)
+    99987    6.241    0.000    9.358    0.000 {built-in method torch._C._nn.linear}
+    46568    0.170    0.000    7.930    0.000 traceback.py:62(format_stack)
+132450/4415    2.432    0.000    7.448    0.002 module.py:799(_apply)
+     4411    0.015    0.000    7.344    0.002 module.py:951(cpu)
+     4411    0.788    0.000    6.929    0.002 model.py:71(get_action)
+    46568    0.183    0.000    5.393    0.000 traceback.py:216(extract_stack)
+    46568    1.482    0.000    5.176    0.000 traceback.py:338(extract)
+    20150    0.333    0.000    4.935    0.000 rnn.py:1424(forward)
+     2560    0.591    0.000    4.470    0.002 model.py:84(get_value)
+    20150    3.435    0.000    4.458    0.000 {built-in method torch.gru_cell}
+    86808    0.138    0.000    4.213    0.000 activation.py:606(forward)
+    86808    0.166    0.000    4.075    0.000 functional.py:1578(selu)
+    86808    2.470    0.000    3.842    0.000 {built-in method torch.selu}
+    46568    0.071    0.000    2.368    0.000 traceback.py:27(format_list)
+     4096    0.795    0.000    2.181    0.001 model.py:157(record_obs)
+    46568    1.062    0.000    2.040    0.000 traceback.py:405(format)
+       16    1.556    0.097    1.748    0.109 model.py:545(calculate_advantages_returns)
+   217232    0.453    0.000    1.531    0.000 linecache.py:52(checkcache)
+  1122224    0.625    0.000    1.492    0.000 traceback.py:301(line)
+   574494    0.613    0.000    1.225    0.000 grad_mode.py:183(__init__)
+   287183    0.382    0.000    1.161    0.000 grad_mode.py:79(__enter__)
+     4411    0.031    0.000    1.138    0.000 time_aware_observation.py:57(step)
+8822/4411    0.037    0.000    1.107    0.000 core.py:518(step)
+   217297    1.047    0.000    1.047    0.000 {built-in method posix.stat}
+     7995    1.002    0.000    1.002    0.000 {method 'item' of 'torch._C.TensorBase' objects}
+   287183    0.310    0.000    0.903    0.000 grad_mode.py:83(__exit__)
+     4411    0.020    0.000    0.844    0.000 time_limit.py:46(step)
+     4411    0.012    0.000    0.824    0.000 order_enforcing.py:52(step)
+     4411    0.025    0.000    0.812    0.000 env_checker.py:45(step)
+     4459    0.459    0.000    0.792    0.000 lunar_lander.py:486(step)
+   282560    0.357    0.000    0.766    0.000 module.py:804(compute_should_use_set_data)
+   282304    0.194    0.000    0.699    0.000 module.py:960(<lambda>)
+   405120    0.335    0.000    0.677    0.000 linecache.py:26(getline)
+   286939    0.589    0.000    0.589    0.000 {method 'cpu' of 'torch._C.TensorBase' objects}
+   255713    0.572    0.000    0.572    0.000 {built-in method torch._C._get_tracing_state}
+     4096    0.571    0.000    0.571    0.000 model.py:111(append)
+   260485    0.160    0.000    0.550    0.000 module.py:2277(children)
+   287183    0.476    0.000    0.519    0.000 grad_mode.py:74(__init__)
+   386510    0.470    0.000    0.470    0.000 module.py:1675(__getattr__)
+   574494    0.450    0.000    0.450    0.000 {built-in method torch._C._set_grad_enabled}
+     7328    0.366    0.000    0.449    0.000 {built-in method torch.stack}
+     7515    0.025    0.000    0.409    0.000 activation.py:1513(forward)
+   287183    0.311    0.000    0.399    0.000 _contextlib.py:149(__new__)
+   260485    0.332    0.000    0.390    0.000 module.py:2286(named_children)
+     7515    0.022    0.000    0.384    0.000 functional.py:1828(softmax)
+   717104    0.378    0.000    0.378    0.000 {method 'format' of 'str' objects}
+   282560    0.357    0.000    0.357    0.000 {built-in method torch._has_compatible_shallow_copy_type}
+     7515    0.217    0.000    0.356    0.000 {method 'softmax' of 'torch._C.TensorBase' objects}
+     2048    0.146    0.000    0.353    0.000 {method 'mean' of 'torch._C.TensorBase' objects}
+   861741    0.311    0.000    0.311    0.000 {built-in method torch.is_grad_enabled}
+   405120    0.238    0.000    0.289    0.000 linecache.py:36(getlines)
+   405120    0.233    0.000    0.284    0.000 linecache.py:147(lazycache)
+     4816    0.027    0.000    0.270    0.000 _tensor.py:1012(__iter__)
+     4096    0.268    0.000    0.268    0.000 {built-in method torch.max}
+   451688    0.259    0.000    0.259    0.000 traceback.py:309(walk_stack)
+    46568    0.179    0.000    0.257    0.000 traceback.py:386(from_list)
+     1600    0.106    0.000    0.256    0.000 {built-in method torch.clamp}
+     4288    0.079    0.000    0.228    0.000 {built-in method builtins.any}
+  1480776    0.225    0.000    0.225    0.000 {method 'strip' of 'str' objects}
+     4816    0.221    0.000    0.221    0.000 {method 'unbind' of 'torch._C.TensorBase' objects}
+  1865672    0.215    0.000    0.215    0.000 {method 'append' of 'list' objects}
+   405120    0.207    0.000    0.207    0.000 traceback.py:259(__init__)
+  1451678    0.195    0.000    0.195    0.000 {built-in method builtins.len}
+     4459    0.031    0.000    0.188    0.000 lunar_lander.py:537(<listcomp>)
+    72590    0.187    0.000    0.187    0.000 {built-in method builtins.getattr}
+     7608    0.184    0.000    0.184    0.000 {method 'to' of 'torch._C.TensorBase' objects}
+     1728    0.080    0.000    0.180    0.000 {built-in method torch.log}
+     9062    0.152    0.000    0.152    0.000 {method 'uniform' of 'numpy.random._generator.Generator' objects}
+     4459    0.022    0.000    0.151    0.000 time_aware_observation.py:46(observation)
+     1536    0.040    0.000    0.137    0.000 {method 'view' of 'torch._C.TensorBase' objects}
+     1152    0.073    0.000    0.133    0.000 {built-in method torch.gather}
+     4471    0.085    0.000    0.127    0.000 function_base.py:5563(append)
+     2048    0.005    0.000    0.126    0.000 _tensor.py:728(norm)
+     8507    0.121    0.000    0.121    0.000 {method 'clone' of 'torch._C.TensorBase' objects}
+     2048    0.028    0.000    0.119    0.000 functional.py:1495(norm)
+        4    0.000    0.000    0.118    0.030 module.py:1047(to)
+   541107    0.113    0.000    0.115    0.000 {method 'add' of 'set' objects}
+      256    0.001    0.000    0.104    0.000 module.py:1146(convert)
+     4411    0.099    0.000    0.099    0.000 {built-in method torch.rand}
+      512    0.043    0.000    0.093    0.000 {method 'sum' of 'torch._C.TensorBase' objects}
+    33329    0.059    0.000    0.092    0.000 container.py:207(__iter__)
+     2112    0.092    0.000    0.092    0.000 {built-in method torch._C._linalg.linalg_vector_norm}
+   287183    0.087    0.000    0.087    0.000 {built-in method __new__ of type object at 0x55e5244fe9a0}
+     4411    0.087    0.000    0.087    0.000 {method 'cumsum' of 'torch._C.TensorBase' objects}
+      512    0.037    0.000    0.087    0.000 {method 'pow' of 'torch._C.TensorBase' objects}
+     4411    0.086    0.000    0.086    0.000 {method 'argmax' of 'torch._C.TensorBase' objects}
+      640    0.037    0.000    0.085    0.000 {built-in method torch.exp}
+      512    0.034    0.000    0.084    0.000 {built-in method torch.min}
+     4160    0.083    0.000    0.083    0.000 {built-in method torch.abs}
+   358552    0.082    0.000    0.082    0.000 {method 'join' of 'str' objects}
+       64    0.007    0.000    0.082    0.001 clip_grad.py:12(clip_grad_norm_)
+     4459    0.080    0.000    0.082    0.000 discrete.py:94(contains)
+     4411    0.080    0.000    0.080    0.000 {method 'byte' of 'torch._C.TensorBase' objects}
+    17361    0.080    0.000    0.080    0.000 {method 'detach' of 'torch._C.TensorBase' objects}
+     4459    0.078    0.000    0.078    0.000 training.py:189(observation)
+     4423    0.039    0.000    0.076    0.000 module.py:1690(__setattr__)
+    99131    0.075    0.000    0.075    0.000 {built-in method torch._C._has_torch_function_unary}
+390875/386444    0.058    0.000    0.074    0.000 {built-in method builtins.isinstance}
+   410790    0.074    0.000    0.074    0.000 {method 'items' of 'collections.OrderedDict' objects}
+       48    0.000    0.000    0.062    0.001 time_aware_observation.py:69(reset)
+    96/48    0.001    0.000    0.062    0.001 core.py:511(reset)
+     4224    0.003    0.000    0.060    0.000 module.py:2171(parameters)
+       48    0.000    0.000    0.059    0.001 time_limit.py:65(reset)
+       48    0.000    0.000    0.059    0.001 order_enforcing.py:58(reset)
+       48    0.000    0.000    0.059    0.001 env_checker.py:53(reset)
+     4224    0.003    0.000    0.058    0.000 module.py:2196(named_parameters)
+     4411    0.057    0.000    0.057    0.000 {method 'float' of 'torch._C.TensorBase' objects}
+       48    0.008    0.000    0.057    0.001 lunar_lander.py:345(reset)
+     4539    0.016    0.000    0.055    0.000 _contextlib.py:141(clone)
+     4224    0.016    0.000    0.055    0.000 module.py:2157(_named_members)
+   282560    0.052    0.000    0.052    0.000 __future__.py:20(get_overwrite_module_params_on_conversion)
+       64    0.002    0.000    0.049    0.001 optimizer.py:368(wrapper)
+     5248    0.048    0.000    0.048    0.000 {method 'squeeze' of 'torch._C.TensorBase' objects}
+    20150    0.031    0.000    0.047    0.000 _VF.py:26(__getattr__)
+   287631    0.044    0.000    0.044    0.000 _jit_internal.py:1120(is_scripting)
+     4540    0.043    0.000    0.043    0.000 {built-in method numpy.array}
+     4475    0.041    0.000    0.041    0.000 {method 'unsqueeze' of 'torch._C.TensorBase' objects}
+  1920/64    0.013    0.000    0.040    0.001 module.py:1824(state_dict)
+    65974    0.040    0.000    0.040    0.000 {method 'dim' of 'torch._C.TensorBase' objects}
+     4411    0.040    0.000    0.040    0.000 {built-in method torch.from_numpy}
+       64    0.001    0.000    0.038    0.001 optimizer.py:58(_use_grad)
+       64    0.001    0.000    0.036    0.001 adamw.py:151(step)
+     4471    0.018    0.000    0.035    0.000 fromnumeric.py:1768(ravel)
+       64    0.001    0.000    0.034    0.001 _compile.py:20(inner)
+       20    0.016    0.001    0.033    0.002 random.py:380(shuffle)
+    36786    0.031    0.000    0.031    0.000 {method 'insert' of 'list' objects}
+14336/3968    0.018    0.000    0.029    0.000 module.py:2333(named_modules)
+       16    0.027    0.002    0.027    0.002 {built-in method torch.tensor}
+     1920    0.008    0.000    0.026    0.000 module.py:1785(_save_to_state_dict)
+    38145    0.022    0.000    0.022    0.000 {built-in method builtins.iter}
+       64    0.004    0.000    0.022    0.000 clip_grad.py:39(<listcomp>)
+    46568    0.021    0.000    0.021    0.000 {built-in method sys._getframe}
+       64    0.001    0.000    0.020    0.000 eval_frame.py:454(_fn)
+     4423    0.013    0.000    0.018    0.000 parameter.py:8(__instancecheck__)
+       64    0.001    0.000    0.017    0.000 adamw.py:279(adamw)
+    17880    0.013    0.000    0.017    0.000 random.py:239(_randbelow_with_getrandbits)
+       64    0.009    0.000    0.016    0.000 optimizer.py:788(zero_grad)
+      480    0.001    0.000    0.016    0.000 Box2D.py:2452(CreateEdgeFixture)
+     4096    0.016    0.000    0.016    0.000 {method 'type' of 'torch._C.TensorBase' objects}
+    41840    0.016    0.000    0.016    0.000 {method 'values' of 'collections.OrderedDict' objects}
+       64    0.001    0.000    0.015    0.000 adamw.py:615(_fused_adamw)
+       64    0.011    0.000    0.015    0.000 adamw.py:90(_init_group)
+      480    0.003    0.000    0.014    0.000 Box2D.py:2401(__CreateShapeFixture)
+      640    0.002    0.000    0.014    0.000 _tensor.py:719(__reversed__)
+       64    0.001    0.000    0.013    0.000 decorators.py:32(disable)
+       64    0.004    0.000    0.013    0.000 functional.py:2886(kl_div)
+    46568    0.013    0.000    0.013    0.000 {method 'reverse' of 'list' objects}
+        4    0.000    0.000    0.012    0.003 training.py:12(create_envs)
+       64    0.002    0.000    0.012    0.000 eval_frame.py:406(__call__)
+     1776    0.004    0.000    0.011    0.000 Box2D.py:99(_init_kwargs)
+      368    0.011    0.000    0.011    0.000 {built-in method torch.zeros}
+      640    0.011    0.000    0.011    0.000 {method 'flip' of 'torch._C.TensorBase' objects}
+       64    0.010    0.000    0.010    0.000 {built-in method torch._foreach_norm}
+       69    0.003    0.000    0.010    0.000 model.py:212(<listcomp>)
+     4471    0.009    0.000    0.009    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+     9046    0.009    0.000    0.009    0.000 {built-in method numpy.asanyarray}
+       44    0.001    0.000    0.009    0.000 fromnumeric.py:3513(std)
+       64    0.008    0.000    0.008    0.000 {built-in method torch.kl_div}
+      128    0.001    0.000    0.008    0.000 profiler.py:604(__enter__)
+       44    0.001    0.000    0.008    0.000 _methods.py:204(_std)
+        8    0.001    0.000    0.008    0.001 box.py:55(__init__)
+      128    0.001    0.000    0.008    0.000 _foreach_utils.py:30(_group_tensors_by_device_and_dtype)
+       44    0.003    0.000    0.008    0.000 _methods.py:135(_var)
+     9062    0.007    0.000    0.008    0.000 core.py:215(np_random)
+      192    0.002    0.000    0.007    0.000 Box2D.py:3155(CreateBody)
+      128    0.000    0.000    0.007    0.000 _ops.py:750(__call__)
+     4640    0.003    0.000    0.007    0.000 {built-in method builtins.setattr}
+     4459    0.007    0.000    0.007    0.000 {built-in method math.sin}
+        4    0.000    0.000    0.007    0.002 passive_env_checker.py:164(env_reset_passive_checker)
+      672    0.002    0.000    0.007    0.000 Box2D.py:2626(__init__)
+        4    0.000    0.000    0.007    0.002 registration.py:698(make)
+      128    0.007    0.000    0.007    0.000 {built-in method torch._ops.profiler._record_function_enter_new}
+     3592    0.007    0.000    0.007    0.000 {built-in method numpy.arange}
+       64    0.001    0.000    0.007    0.000 clip_grad.py:46(<listcomp>)
+       64    0.000    0.000    0.007    0.000 optimizer.py:396(_group_tensors_by_device_and_dtype)
+      128    0.007    0.000    0.007    0.000 {built-in method torch._C._group_tensors_by_device_and_dtype}
+      161    0.004    0.000    0.006    0.000 lunar_lander.py:65(BeginContact)
+     4415    0.006    0.000    0.006    0.000 module.py:1691(remove_from)
+       16    0.000    0.000    0.006    0.000 box.py:13(_short_repr)
+    10240    0.003    0.000    0.006    0.000 _tensor.py:1034(__hash__)
+       64    0.000    0.000    0.006    0.000 _tensor.py:34(wrapped)
+       64    0.001    0.000    0.006    0.000 __init__.py:59(_make_grads)
+       16    0.000    0.000    0.005    0.000 arrayprint.py:1595(_array_str_implementation)
+       16    0.000    0.000    0.005    0.000 arrayprint.py:561(array2string)
+       64    0.003    0.000    0.005    0.000 _tensor.py:943(__rdiv__)
+     8937    0.005    0.000    0.005    0.000 {built-in method builtins.abs}
+       16    0.000    0.000    0.005    0.000 arrayprint.py:506(wrapper)
+       64    0.005    0.000    0.005    0.000 {built-in method torch._foreach_mul_}
+       16    0.000    0.000    0.005    0.000 arrayprint.py:523(_array2string)
+      128    0.005    0.000    0.005    0.000 {built-in method torch.mean}
+      144    0.001    0.000    0.005    0.000 Box2D.py:3125(CreateDynamicBody)
+       64    0.001    0.000    0.005    0.000 inspect.py:813(getsourcefile)
+        4    0.000    0.000    0.005    0.001 time_aware_observation.py:26(__init__)
+        4    0.000    0.000    0.005    0.001 lunar_lander.py:228(__init__)
+      128    0.002    0.000    0.005    0.000 profiler.py:610(__exit__)
+       64    0.004    0.000    0.004    0.000 {built-in method torch._fused_adamw_}
+       32    0.001    0.000    0.004    0.000 model.py:101(__init__)
+       64    0.004    0.000    0.004    0.000 {built-in method torch.ones_like}
+       64    0.000    0.000    0.004    0.000 skipfiles.py:404(check)
+      528    0.001    0.000    0.004    0.000 Box2D.py:1704(__init__)
+      128    0.002    0.000    0.004    0.000 _foreach_utils.py:42(_has_foreach_support)
+       64    0.001    0.000    0.004    0.000 skipfiles.py:371(check_verbose)
+      312    0.004    0.000    0.004    0.000 {method 'flatten' of 'torch._C.TensorBase' objects}
+     9130    0.004    0.000    0.004    0.000 {method 'get' of 'dict' objects}
+       48    0.000    0.000    0.004    0.000 Box2D.py:3145(CreateStaticBody)
+       96    0.001    0.000    0.004    0.000 Box2D.py:4304(__init__)
+       64    0.003    0.000    0.003    0.000 {built-in method torch._foreach_add_}
+      224    0.003    0.000    0.003    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+      192    0.001    0.000    0.003    0.000 Box2D.py:2207(__init__)
+       64    0.001    0.000    0.003    0.000 optimizer.py:321(_cuda_graph_capture_health_check)
+     3840    0.002    0.000    0.003    0.000 module.py:2224(<lambda>)
+      192    0.001    0.000    0.003    0.000 {built-in method builtins.all}
+       16    0.000    0.000    0.003    0.000 arrayprint.py:452(_get_format_function)
+       64    0.001    0.000    0.003    0.000 clip_grad.py:61(<listcomp>)
+      144    0.000    0.000    0.003    0.000 Box2D.py:1889(__init__)
+     4459    0.003    0.000    0.003    0.000 {built-in method math.cos}
+     4807    0.003    0.000    0.003    0.000 {function _ParameterMeta.__instancecheck__ at 0x7fbe45d57be0}
+       16    0.000    0.000    0.003    0.000 arrayprint.py:411(<lambda>)
+      128    0.000    0.000    0.003    0.000 _ops.py:512(__call__)
+    25841    0.003    0.000    0.003    0.000 {method 'getrandbits' of '_random.Random' objects}
+     1158    0.001    0.000    0.003    0.000 Box2D.py:429(b2BodyCompare)
+       16    0.000    0.000    0.003    0.000 arrayprint.py:907(__init__)
+    10484    0.003    0.000    0.003    0.000 {built-in method builtins.id}
+       16    0.001    0.000    0.003    0.000 arrayprint.py:934(fillFormat)
+     4475    0.002    0.000    0.002    0.000 multiarray.py:153(concatenate)
+      128    0.002    0.000    0.002    0.000 {built-in method torch._ops.profiler.}
+      128    0.001    0.000    0.002    0.000 fromnumeric.py:71(_wrapreduction)
+     4471    0.002    0.000    0.002    0.000 function_base.py:5559(_append_dispatcher)
+      132    0.002    0.000    0.002    0.000 {method 'numpy' of 'torch._C.TensorBase' objects}
+     5024    0.002    0.000    0.002    0.000 {built-in method builtins.hasattr}
+       64    0.002    0.000    0.002    0.000 {method 'reciprocal' of 'torch._C.TensorBase' objects}
+      624    0.002    0.000    0.002    0.000 Box2D.py:2512(CreateFixture)
+       64    0.000    0.000    0.002    0.000 __init__.py:128(is_available)
+       96    0.000    0.000    0.002    0.000 Box2D.py:113(_init_jointdef_kwargs)
+      128    0.000    0.000    0.002    0.000 package_importer.py:695(_patched_getfile)
+       20    0.000    0.000    0.002    0.000 shape_base.py:791(split)
+       16    0.000    0.000    0.002    0.000 arrayprint.py:780(_formatArray)
+      216    0.000    0.000    0.002    0.000 {built-in method builtins.next}
+   152/16    0.001    0.000    0.002    0.000 arrayprint.py:789(recurser)
+    17880    0.002    0.000    0.002    0.000 {method 'bit_length' of 'int' objects}
+       64    0.000    0.000    0.002    0.000 genericpath.py:16(exists)
+      128    0.001    0.000    0.002    0.000 profiler.py:593(__init__)
+       20    0.001    0.000    0.002    0.000 shape_base.py:731(array_split)
+       64    0.000    0.000    0.002    0.000 __init__.py:124(_nvml_based_avail)
+       64    0.000    0.000    0.001    0.000 skipfiles.py:304(check_file)
+      528    0.001    0.000    0.001    0.000 Box2D.py:1744(__set_vertices)
+     2048    0.001    0.000    0.001    0.000 {built-in method torch.is_complex}
+       48    0.001    0.000    0.001    0.000 lunar_lander.py:75(EndContact)
+      108    0.000    0.000    0.001    0.000 contextlib.py:130(__enter__)
+      128    0.001    0.000    0.001    0.000 inspect.py:773(getfile)
+     4471    0.001    0.000    0.001    0.000 fromnumeric.py:1764(_ravel_dispatcher)
+     4224    0.001    0.000    0.001    0.000 _foreach_utils.py:45(<genexpr>)
+       48    0.001    0.000    0.001    0.000 lunar_lander.py:333(_destroy)
+        4    0.000    0.000    0.001    0.000 passive_env_checker.py:205(env_step_passive_checker)
+       64    0.000    0.000    0.001    0.000 os.py:772(getenv)
+       48    0.001    0.000    0.001    0.000 Box2D.py:2478(CreateFixturesFromShapes)
+        8    0.000    0.000    0.001    0.000 passive_env_checker.py:116(check_obs)
+      672    0.001    0.000    0.001    0.000 {built-in method Box2D._Box2D.b2FixtureDef_swiginit}
+       48    0.001    0.000    0.001    0.000 Box2D.py:1915(__set_vertices)
+      528    0.001    0.000    0.001    0.000 {built-in method Box2D._Box2D.b2EdgeShape_swiginit}
+       48    0.000    0.000    0.001    0.000 lunar_lander.py:61(__init__)
+      128    0.000    0.000    0.001    0.000 eval_frame.py:120(backend_cache_wrapper)
+       64    0.000    0.000    0.001    0.000 _collections_abc.py:821(get)
+      108    0.000    0.000    0.001    0.000 contextlib.py:139(__exit__)
+       16    0.001    0.000    0.001    0.000 {built-in method builtins.print}
+      108    0.000    0.000    0.001    0.000 contextlib.py:279(helper)
+     1158    0.001    0.000    0.001    0.000 {built-in method Box2D._Box2D.__bodyeq}
+       48    0.000    0.000    0.001    0.000 Box2D.py:2887(__init__)
+     2112    0.001    0.000    0.001    0.000 adamw.py:308(<genexpr>)
+       64    0.000    0.000    0.001    0.000 eval_frame.py:592(__init__)
+        8    0.000    0.000    0.001    0.000 space.py:114(__contains__)
+       96    0.001    0.000    0.001    0.000 Box2D.py:3318(CreateJoint)
+        8    0.000    0.000    0.001    0.000 box.py:237(contains)
+       40    0.000    0.000    0.001    0.000 fromnumeric.py:2692(max)
+      133    0.001    0.000    0.001    0.000 {method 'extend' of 'list' objects}
+       36    0.000    0.000    0.001    0.000 fromnumeric.py:2836(min)
+      832    0.000    0.000    0.001    0.000 skipfiles.py:308(<genexpr>)
+      136    0.001    0.000    0.001    0.000 arrayprint.py:1018(__call__)
+       52    0.001    0.000    0.001    0.000 _methods.py:67(_count_reduce_items)
+        4    0.000    0.000    0.001    0.000 seeding.py:9(np_random)
+       64    0.000    0.000    0.001    0.000 os.py:675(__getitem__)
+      108    0.000    0.000    0.001    0.000 numerictypes.py:357(issubdtype)
+       64    0.000    0.000    0.001    0.000 functools.py:35(update_wrapper)
+       64    0.000    0.000    0.001    0.000 _trace.py:1119(is_tracing)
+       48    0.001    0.000    0.001    0.000 lunar_lander.py:373(<listcomp>)
+      108    0.001    0.000    0.001    0.000 contextlib.py:102(__init__)
+      164    0.000    0.000    0.001    0.000 fromnumeric.py:537(swapaxes)
+       32    0.000    0.000    0.001    0.000 box.py:30(is_float_integer)
+        4    0.000    0.000    0.001    0.000 registration.py:490(_find_spec)
+       64    0.000    0.000    0.001    0.000 utils.py:741(getfile)
+        4    0.000    0.000    0.001    0.000 inspect.py:3252(signature)
+     2744    0.001    0.000    0.001    0.000 {method 'items' of 'dict' objects}
+        4    0.000    0.000    0.001    0.000 inspect.py:2998(from_callable)
+       64    0.001    0.000    0.001    0.000 eval_frame.py:341(__init__)
+      8/4    0.000    0.000    0.001    0.000 inspect.py:2375(_signature_from_callable)
+        4    0.000    0.000    0.001    0.000 env_checker.py:26(__init__)
+      128    0.001    0.000    0.001    0.000 typing.py:306(inner)
+       36    0.000    0.000    0.001    0.000 fromnumeric.py:2322(any)
+       64    0.000    0.000    0.001    0.000 graphs.py:22(is_current_stream_capturing)
+       16    0.000    0.000    0.001    0.000 fromnumeric.py:2421(all)
+      192    0.001    0.000    0.001    0.000 {built-in method Box2D._Box2D.b2BodyDef_swiginit}
+      672    0.001    0.000    0.001    0.000 Box2D.py:2650(__del__)
+      128    0.000    0.000    0.001    0.000 _foreach_utils.py:35(<dictcomp>)
+        8    0.000    0.000    0.001    0.000 fromnumeric.py:3385(mean)
+        4    0.000    0.000    0.001    0.000 function_base.py:24(linspace)
+      148    0.000    0.000    0.000    0.000 arrayprint.py:989(<genexpr>)
+      128    0.000    0.000    0.000    0.000 eval_frame.py:138(_set_current_backend)
+     20/4    0.000    0.000    0.000    0.000 core.py:317(get_wrapper_attr)
+      144    0.000    0.000    0.000    0.000 Box2D.py:2654(__SetCategoryBits)
+        4    0.000    0.000    0.000    0.000 registration.py:535(load_env_creator)
+       88    0.000    0.000    0.000    0.000 _ufunc_config.py:452(_no_nep50_warning)
+       64    0.000    0.000    0.000    0.000 {built-in method torch._C._cuda_isCurrentStreamCapturing}
+      164    0.000    0.000    0.000    0.000 fromnumeric.py:53(_wrapfunc)
+      192    0.000    0.000    0.000    0.000 base.py:125(__instancecheck__)
+      528    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.new_b2EdgeShape}
+      136    0.000    0.000    0.000    0.000 arrayprint.py:753(_extendLine_pretty)
+       92    0.000    0.000    0.000    0.000 Box2D.py:3377(<lambda>)
+       16    0.000    0.000    0.000    0.000 record_constructor.py:22(__init__)
+      112    0.000    0.000    0.000    0.000 {method 'size' of 'torch._C.TensorBase' objects}
+      128    0.000    0.000    0.000    0.000 _foreach_utils.py:8(_get_foreach_kernels_supported_devices)
+        4    0.000    0.000    0.000    0.000 __init__.py:108(import_module)
+        8    0.000    0.000    0.000    0.000 _methods.py:101(_mean)
+        8    0.000    0.000    0.000    0.000 registration.py:262(parse_env_id)
+      144    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.b2PolygonShape_swiginit}
+    36/20    0.000    0.000    0.000    0.000 copy.py:128(deepcopy)
+       64    0.000    0.000    0.000    0.000 {built-in method torch._C._is_tracing}
+       48    0.000    0.000    0.000    0.000 _ufunc_config.py:33(seterr)
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:1038(_gcd_import)
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:1022(_find_and_load)
+       20    0.000    0.000    0.000    0.000 {method '__dir__' of 'object' objects}
+        4    0.000    0.000    0.000    0.000 inspect.py:2280(_signature_from_function)
+      148    0.000    0.000    0.000    0.000 arrayprint.py:984(<genexpr>)
+      789    0.000    0.000    0.000    0.000 {method 'startswith' of 'str' objects}
+       64    0.000    0.000    0.000    0.000 eval_frame.py:99(_maybe_init_guarded_backend_cache)
+       16    0.000    0.000    0.000    0.000 box.py:302(_broadcast)
+      672    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.new_b2FixtureDef}
+        1    0.000    0.000    0.000    0.000 linecache.py:80(updatecache)
+      256    0.000    0.000    0.000    0.000 {method 'is_floating_point' of 'torch._C.TensorBase' objects}
+       24    0.000    0.000    0.000    0.000 _ufunc_config.py:430(__enter__)
+        8    0.000    0.000    0.000    0.000 {method 'fullmatch' of 're.Pattern' objects}
+      192    0.000    0.000    0.000    0.000 eval_frame.py:261(innermost_fn)
+       96    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.b2RevoluteJointDef_swiginit}
+      264    0.000    0.000    0.000    0.000 {built-in method numpy.core._multiarray_umath.dragon4_positional}
+       24    0.000    0.000    0.000    0.000 box.py:294(get_precision)
+        4    0.000    0.000    0.000    0.000 contextlib.py:76(inner)
+       64    0.000    0.000    0.000    0.000 os.py:755(encode)
+       92    0.000    0.000    0.000    0.000 Box2D.py:3366(__SetData)
+      144    0.000    0.000    0.000    0.000 Box2D.py:2658(__SetMaskBits)
+       48    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.b2ContactListener_swiginit}
+      136    0.000    0.000    0.000    0.000 arrayprint.py:739(_extendLine)
+      192    0.000    0.000    0.000    0.000 inspect.py:820(<genexpr>)
+      144    0.000    0.000    0.000    0.000 Box2D.py:2250(fixtures)
+        8    0.000    0.000    0.000    0.000 passive_env_checker.py:63(check_space)
+        4    0.000    0.000    0.000    0.000 {method 'mean' of 'numpy.generic' objects}
+       48    0.000    0.000    0.000    0.000 lunar_lander.py:364(<listcomp>)
+      164    0.000    0.000    0.000    0.000 {method 'swapaxes' of 'numpy.ndarray' objects}
+       56    0.000    0.000    0.000    0.000 {built-in method builtins.max}
+       48    0.000    0.000    0.000    0.000 Box2D.py:2261(shapes)
+       48    0.000    0.000    0.000    0.000 lunar_lander.py:399(<listcomp>)
+        4    0.000    0.000    0.000    0.000 passive_env_checker.py:18(_check_box_observation_space)
+      256    0.000    0.000    0.000    0.000 inspect.py:191(isclass)
+        4    0.000    0.000    0.000    0.000 registration.py:306(find_highest_version)
+      192    0.000    0.000    0.000    0.000 Box2D.py:2238(__del__)
+       24    0.000    0.000    0.000    0.000 _ufunc_config.py:435(__exit__)
+      256    0.000    0.000    0.000    0.000 inspect.py:823(<genexpr>)
+      128    0.000    0.000    0.000    0.000 inspect.py:182(ismodule)
+       16    0.000    0.000    0.000    0.000 arrayprint.py:403(_get_formatdict)
+       96    0.000    0.000    0.000    0.000 Box2D.py:1946(<lambda>)
+      216    0.000    0.000    0.000    0.000 numerictypes.py:283(issubclass_)
+      128    0.000    0.000    0.000    0.000 {built-in method torch._C._get_privateuse1_backend_name}
+      144    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.new_b2PolygonShape}
+        8    0.000    0.000    0.000    0.000 {method 'randint' of 'numpy.random.mtrand.RandomState' objects}
+      496    0.000    0.000    0.000    0.000 {built-in method builtins.issubclass}
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:169(__enter__)
+       64    0.000    0.000    0.000    0.000 functools.py:65(wraps)
+       96    0.000    0.000    0.000    0.000 Box2D.py:3589(__del__)
+        1    0.000    0.000    0.000    0.000 {method 'readlines' of '_io._IOBase' objects}
+      192    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.new_b2BodyDef}
+        4    0.000    0.000    0.000    0.000 {function SeedSequence.generate_state at 0x7fbea331de10}
+       64    0.000    0.000    0.000    0.000 {built-in method torch._C._are_functorch_transforms_active}
+       64    0.000    0.000    0.000    0.000 __init__.py:119(_is_compiled)
+       64    0.000    0.000    0.000    0.000 {method 'numel' of 'torch._C.TensorBase' objects}
+       16    0.000    0.000    0.000    0.000 arrayprint.py:64(_make_options_dict)
+       44    0.000    0.000    0.000    0.000 {method 'reset' of '_contextvars.ContextVar' objects}
+      136    0.000    0.000    0.000    0.000 inspect.py:277(isfunction)
+       44    0.000    0.000    0.000    0.000 {method 'set' of '_contextvars.ContextVar' objects}
+      128    0.000    0.000    0.000    0.000 fromnumeric.py:72(<dictcomp>)
+        4    0.000    0.000    0.000    0.000 registration.py:316(<listcomp>)
+        4    0.000    0.000    0.000    0.000 random.py:119(__init__)
+       44    0.000    0.000    0.000    0.000 {method 'astype' of 'numpy.ndarray' objects}
+       48    0.000    0.000    0.000    0.000 _ufunc_config.py:132(geterr)
+       48    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.new_b2ContactListener}
+      480    0.000    0.000    0.000    0.000 Box2D.py:2246(fixtures)
+      321    0.000    0.000    0.000    0.000 {method 'endswith' of 'str' objects}
+        8    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:179(_get_module_lock)
+        4    0.000    0.000    0.000    0.000 {built-in method torch.logical_or}
+        4    0.000    0.000    0.000    0.000 order_enforcing.py:37(__init__)
+        1    0.000    0.000    0.000    0.000 tokenize.py:390(open)
+        4    0.000    0.000    0.000    0.000 random.py:128(seed)
+        8    0.000    0.000    0.000    0.000 ufunclike.py:71(isposinf)
+       12    0.000    0.000    0.000    0.000 inspect.py:2637(__init__)
+        4    0.000    0.000    0.000    0.000 Box2D.py:3047(__init__)
+      128    0.000    0.000    0.000    0.000 _internal.py:920(npy_ctypes_check)
+      128    0.000    0.000    0.000    0.000 inspect.py:199(ismethod)
+       96    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.new_b2RevoluteJointDef}
+      128    0.000    0.000    0.000    0.000 inspect.py:365(isframe)
+       64    0.000    0.000    0.000    0.000 {built-in method torch._C._cuda_getDeviceCount}
+      128    0.000    0.000    0.000    0.000 inspect.py:355(istraceback)
+       64    0.000    0.000    0.000    0.000 {method 'encode' of 'str' objects}
+       64    0.000    0.000    0.000    0.000 _reduction.py:7(get_enum)
+       64    0.000    0.000    0.000    0.000 __init__.py:154(_tensor_or_tensors_to_tuple)
+        4    0.000    0.000    0.000    0.000 _tensor.py:1058(__array__)
+       24    0.000    0.000    0.000    0.000 getlimits.py:484(__new__)
+        8    0.000    0.000    0.000    0.000 inspect.py:2920(__init__)
+       64    0.000    0.000    0.000    0.000 {built-in method torch._C._has_torch_function}
+       16    0.000    0.000    0.000    0.000 {built-in method builtins.sum}
+      128    0.000    0.000    0.000    0.000 {built-in method torch._C._dynamo.eval_frame.set_eval_frame}
+        4    0.000    0.000    0.000    0.000 registration.py:472(_check_metadata)
+      100    0.000    0.000    0.000    0.000 {method 'values' of 'dict' objects}
+        4    0.000    0.000    0.000    0.000 time_limit.py:27(__init__)
+       20    0.000    0.000    0.000    0.000 copy.py:227(_deepcopy_dict)
+      128    0.000    0.000    0.000    0.000 inspect.py:379(iscode)
+        4    0.000    0.000    0.000    0.000 inspect.py:1959(_signature_bound_method)
+       44    0.000    0.000    0.000    0.000 lunar_lander.py:482(_clean_particles)
+      128    0.000    0.000    0.000    0.000 {method '__exit__' of 'torch._C.DisableTorchFunctionSubclass' objects}
+        4    0.000    0.000    0.000    0.000 random.py:826(getrandbits)
+      208    0.000    0.000    0.000    0.000 {built-in method builtins.callable}
+        4    0.000    0.000    0.000    0.000 _tensor.py:996(__len__)
+       64    0.000    0.000    0.000    0.000 __init__.py:30(is_built)
+      240    0.000    0.000    0.000    0.000 Box2D.py:2257(shapes)
+      128    0.000    0.000    0.000    0.000 decorators.py:140(graph_break)
+        4    0.000    0.000    0.000    0.000 <string>:2(__init__)
+       20    0.000    0.000    0.000    0.000 core.py:278(__init__)
+       20    0.000    0.000    0.000    0.000 copy.py:243(_keep_alive)
+        4    0.000    0.000    0.000    0.000 discrete.py:26(__init__)
+       44    0.000    0.000    0.000    0.000 {method 'appendleft' of 'collections.deque' objects}
+        4    0.000    0.000    0.000    0.000 typing.py:993(__instancecheck__)
+       48    0.000    0.000    0.000    0.000 {built-in method numpy.core._multiarray_umath.normalize_axis_index}
+      136    0.000    0.000    0.000    0.000 {method 'split' of 'str' objects}
+       48    0.000    0.000    0.000    0.000 {built-in method numpy.seterrobj}
+       64    0.000    0.000    0.000    0.000 {built-in method torch._C._has_torch_function_variadic}
+       44    0.000    0.000    0.000    0.000 fromnumeric.py:3508(_std_dispatcher)
+      148    0.000    0.000    0.000    0.000 arrayprint.py:993(<genexpr>)
+        4    0.000    0.000    0.000    0.000 registration.py:124(__post_init__)
+        8    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:100(acquire)
+        4    0.000    0.000    0.000    0.000 {function Random.seed at 0x7fbea33604c0}
+        4    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.new_b2World}
+       64    0.000    0.000    0.000    0.000 contextlib.py:732(__init__)
+      128    0.000    0.000    0.000    0.000 __init__.py:126(annotate)
+      148    0.000    0.000    0.000    0.000 arrayprint.py:994(<genexpr>)
+      192    0.000    0.000    0.000    0.000 _utils.py:869(is_compiling)
+        1    0.000    0.000    0.000    0.000 tokenize.py:297(detect_encoding)
+        8    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:125(release)
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:173(__exit__)
+        4    0.000    0.000    0.000    0.000 typing.py:1154(__subclasscheck__)
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:216(_lock_unlock_module)
+      164    0.000    0.000    0.000    0.000 fromnumeric.py:533(_swapaxes_dispatcher)
+       16    0.000    0.000    0.000    0.000 core.py:293(__getattr__)
+       16    0.000    0.000    0.000    0.000 {built-in method builtins.locals}
+       84    0.000    0.000    0.000    0.000 {method 'update' of 'dict' objects}
+      128    0.000    0.000    0.000    0.000 eval_frame.py:257(nothing)
+        8    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:71(__init__)
+        1    0.000    0.000    0.000    0.000 {built-in method io.open}
+        6    0.000    0.000    0.000    0.000 codecs.py:319(decode)
+        8    0.000    0.000    0.000    0.000 ufunclike.py:142(isneginf)
+       12    0.000    0.000    0.000    0.000 enum.py:359(__call__)
+        4    0.000    0.000    0.000    0.000 {built-in method posix.urandom}
+      136    0.000    0.000    0.000    0.000 {method 'splitlines' of 'str' objects}
+       64    0.000    0.000    0.000    0.000 optimizer.py:352(_optimizer_step_code)
+    72/16    0.000    0.000    0.000    0.000 core.py:397(observation_space)
+       64    0.000    0.000    0.000    0.000 typing.py:1737(cast)
+        4    0.000    0.000    0.000    0.000 abc.py:117(__instancecheck__)
+       48    0.000    0.000    0.000    0.000 core.py:121(reset)
+       16    0.000    0.000    0.000    0.000 inspect.py:2969(<genexpr>)
+        4    0.000    0.000    0.000    0.000 {built-in method torch._C._nn._parse_to}
+        4    0.000    0.000    0.000    0.000 inspect.py:3014(replace)
+       96    0.000    0.000    0.000    0.000 {built-in method numpy.geterrobj}
+       42    0.000    0.000    0.000    0.000 {method 'keys' of 'dict' objects}
+        4    0.000    0.000    0.000    0.000 inspect.py:612(unwrap)
+        4    0.000    0.000    0.000    0.000 inspect.py:66(get_annotations)
+        4    0.000    0.000    0.000    0.000 model.py:180(<listcomp>)
+        4    0.000    0.000    0.000    0.000 {built-in method _abc._abc_instancecheck}
+       48    0.000    0.000    0.000    0.000 Box2D.py:2268(shapeFixture)
+        6    0.000    0.000    0.000    0.000 {built-in method _codecs.utf_8_decode}
+       12    0.000    0.000    0.000    0.000 space.py:44(__init__)
+        8    0.000    0.000    0.000    0.000 {method 'group' of 're.Match' objects}
+        4    0.000    0.000    0.000    0.000 {built-in method Box2D._Box2D.b2World_swiginit}
+       64    0.000    0.000    0.000    0.000 contextlib.py:738(__exit__)
+        4    0.000    0.000    0.000    0.000 {method 'sort' of 'numpy.ndarray' objects}
+       20    0.000    0.000    0.000    0.000 _ufunc_config.py:426(__init__)
+       64    0.000    0.000    0.000    0.000 contextlib.py:735(__enter__)
+       32    0.000    0.000    0.000    0.000 box.py:149(shape)
+        1    0.000    0.000    0.000    0.000 tokenize.py:321(read_or_stop)
+        4    0.000    0.000    0.000    0.000 abc.py:121(__subclasscheck__)
+        8    0.000    0.000    0.000    0.000 core.py:507(__init__)
+       20    0.000    0.000    0.000    0.000 shape_base.py:787(_split_dispatcher)
+       16    0.000    0.000    0.000    0.000 arrayprint.py:72(<dictcomp>)
+        4    0.000    0.000    0.000    0.000 core.py:251(get_wrapper_attr)
+        8    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:198(cb)
+        4    0.000    0.000    0.000    0.000 model.py:182(<listcomp>)
+        4    0.000    0.000    0.000    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+        1    0.000    0.000    0.000    0.000 {method 'readline' of '_io.BufferedReader' objects}
+       40    0.000    0.000    0.000    0.000 fromnumeric.py:2687(_max_dispatcher)
+       36    0.000    0.000    0.000    0.000 fromnumeric.py:2831(_min_dispatcher)
+        4    0.000    0.000    0.000    0.000 {built-in method _abc._abc_subclasscheck}
+        4    0.000    0.000    0.000    0.000 model.py:183(<listcomp>)
+       36    0.000    0.000    0.000    0.000 fromnumeric.py:2317(_any_dispatcher)
+        4    0.000    0.000    0.000    0.000 model.py:181(<listcomp>)
+       32    0.000    0.000    0.000    0.000 {method 'rstrip' of 'str' objects}
+        1    0.000    0.000    0.000    0.000 {method '__exit__' of '_io._IOBase' objects}
+       16    0.000    0.000    0.000    0.000 {method 'discard' of 'set' objects}
+        4    0.000    0.000    0.000    0.000 model.py:186(<listcomp>)
+        4    0.000    0.000    0.000    0.000 model.py:184(<listcomp>)
+        1    0.000    0.000    0.000    0.000 tokenize.py:327(find_cookie)
+        4    0.000    0.000    0.000    0.000 model.py:185(<listcomp>)
+       16    0.000    0.000    0.000    0.000 fromnumeric.py:2416(_all_dispatcher)
+        4    0.000    0.000    0.000    0.000 model.py:187(<listcomp>)
+       32    0.000    0.000    0.000    0.000 {built-in method _thread.get_ident}
+        4    0.000    0.000    0.000    0.000 numeric.py:1855(isscalar)
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:968(_sanity_check)
+        8    0.000    0.000    0.000    0.000 {built-in method builtins.min}
+       12    0.000    0.000    0.000    0.000 enum.py:678(__new__)
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:165(__init__)
+       16    0.000    0.000    0.000    0.000 {built-in method _thread.allocate_lock}
+        4    0.000    0.000    0.000    0.000 {method 'get' of 'mappingproxy' objects}
+       16    0.000    0.000    0.000    0.000 {method 'copy' of 'dict' objects}
+       20    0.000    0.000    0.000    0.000 inspect.py:2687(name)
+        4    0.000    0.000    0.000    0.000 ezpickle.py:21(__init__)
+        4    0.000    0.000    0.000    0.000 {built-in method from_bytes}
+       12    0.000    0.000    0.000    0.000 {method 'isidentifier' of 'str' objects}
+        4    0.000    0.000    0.000    0.000 fromnumeric.py:3176(ndim)
+        4    0.000    0.000    0.000    0.000 inspect.py:632(_is_wrapper)
+       16    0.000    0.000    0.000    0.000 {built-in method numpy.asarray}
+       16    0.000    0.000    0.000    0.000 arrayprint.py:898(_none_or_positive_arg)
+       20    0.000    0.000    0.000    0.000 core.py:379(class_name)
+        2    0.000    0.000    0.000    0.000 {method 'match' of 're.Pattern' objects}
+       16    0.000    0.000    0.000    0.000 inspect.py:3006(parameters)
+        8    0.000    0.000    0.000    0.000 fromnumeric.py:3380(_mean_dispatcher)
+        8    0.000    0.000    0.000    0.000 multiarray.py:503(can_cast)
+        8    0.000    0.000    0.000    0.000 multiarray.py:346(where)
+       20    0.000    0.000    0.000    0.000 shape_base.py:727(_array_split_dispatcher)
+       16    0.000    0.000    0.000    0.000 ufunclike.py:14(_dispatcher)
+        1    0.000    0.000    0.000    0.000 codecs.py:309(__init__)
+        4    0.000    0.000    0.000    0.000 {method 'values' of 'mappingproxy' objects}
+       16    0.000    0.000    0.000    0.000 {built-in method _imp.acquire_lock}
+       16    0.000    0.000    0.000    0.000 {method '__exit__' of '_thread.lock' objects}
+       16    0.000    0.000    0.000    0.000 copy.py:182(_deepcopy_atomic)
+       16    0.000    0.000    0.000    0.000 {built-in method _imp.release_lock}
+        4    0.000    0.000    0.000    0.000 {built-in method _operator.index}
+       16    0.000    0.000    0.000    0.000 inspect.py:2699(kind)
+        4    0.000    0.000    0.000    0.000 function_base.py:19(_linspace_dispatcher)
+        4    0.000    0.000    0.000    0.000 core.py:406(observation_space)
+        4    0.000    0.000    0.000    0.000 fromnumeric.py:3172(_ndim_dispatcher)
+        4    0.000    0.000    0.000    0.000 inspect.py:2691(default)
+        4    0.000    0.000    0.000    0.000 space.py:82(shape)
+        4    0.000    0.000    0.000    0.000 multiarray.py:669(result_type)
+        4    0.000    0.000    0.000    0.000 {built-in method sys.getrecursionlimit}
+        4    0.000    0.000    0.000    0.000 core.py:206(unwrapped)
+        1    0.000    0.000    0.000    0.000 codecs.py:260(__init__)
+        4    0.000    0.000    0.000    0.000 contextlib.py:63(_recreate_cm)
+        1    0.000    0.000    0.000    0.000 {method 'startswith' of 'bytes' objects}
+        1    0.000    0.000    0.000    0.000 {method 'decode' of 'bytes' objects}
+        1    0.000    0.000    0.000    0.000 {method 'seek' of '_io.BufferedReader' objects}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 {method 'pop' of 'dict' objects}
+
+

@@ -26,6 +26,7 @@ def main():
 
     envs = create_envs(num=num_envs)
     obs_dim = envs[0].observation_space.shape[0]
+    obs_dim = 5
     action_num = envs[0].action_space.n
     env_infos = [
         {"state":None,"env":env, "ep_reward":0, "env_id": i, "reward_memory": [], "hidden_state": None}
@@ -45,20 +46,18 @@ def main():
         # if epoch == 1:
         #     profiler.enable()
         exp_collected = 0
-        obs = []
-        env_steps = []
         while exp_collected < collect_steps:
             for env_info in env_infos:
                 if env_info["state"] is None:
                     env_info["state"], _ = env_info["env"].reset()
                     env_info["ep_reward"] = 0
 
-                env_steps.append(exp_collected // len(env_infos))
                 action, action_prop, new_h = agent.select_action(env_info["state"], env_info["hidden_state"])
                 next_state, reward, terminated, truncated, info = env_info["env"].step(action)
                 agent_reward = reward
                 if truncated:
-                  agent_reward -= mean_vars
+                    print("Truncated")
+                #     agent_reward -= mean_vars
 
                 agent_reward = agent_reward / mean_vars
                 agent.record_obs(env_info["state"], env_info["hidden_state"], action, agent_reward, next_state, terminated, truncated, action_prop, env_info["env_id"], exp_collected // len(env_infos))
@@ -83,11 +82,9 @@ def main():
                         env_info["reward_memory"] = []
                         env_info["hidden_state"] = None
 
-                    obs.append(next_state)
-
-                if exp_collected > collect_steps:
+                if exp_collected >= collect_steps:
                     break
-            if exp_collected > collect_steps:
+            if exp_collected >= collect_steps:
                     break
         if epoch >= 5:
             agent.train_epochs_bptt()
@@ -95,8 +92,8 @@ def main():
             # Recaclulate most recent hidden state
             for env_info in env_infos:
                 if env_info["hidden_state"] is not None:
-                    state = agent.memory[env_info["env_id"]].state[-1].unsqueeze(0).to(agent.device)
-                    h_state = agent.memory[env_info["env_id"]].hidden_state[-2].unsqueeze(0).to(agent.device)
+                    state = agent.memory[env_info["env_id"]].state[steps_per_env-1].unsqueeze(0).to(agent.device)
+                    h_state = agent.memory[env_info["env_id"]].hidden_state[steps_per_env-1].unsqueeze(0).to(agent.device)
                     _, _, new_h = agent.model(state, h_state)
                     env_info["hidden_state"] = new_h.detach().cpu()
             agent.memory = {}
@@ -124,7 +121,7 @@ def main():
         #rewards.appendleft(ep_reward)
         print("Epoch " + str(epoch) + "/" + str(num_epochs) + " Avg. Reward: " + str(sum(rewards)/len(rewards)) + " " + str(ep_reward))
 
-        if epoch % 10 == 0:
+        if epoch % 100 == 0:
             agent.save_model("SpaceInvaders-v5-agent_" + str(epoch))
 
 
@@ -187,7 +184,7 @@ class EpisodicLifeEnv(gymnasium.Wrapper[np.ndarray, int, np.ndarray, int]):
 class VelHidden(gymnasium.ObservationWrapper):
     def observation(self, obs):
         obs[[2,3,5]] = 0.0
-        return obs
+        return obs[[0,1,4,6,7]]
 
 
     
@@ -195,8 +192,8 @@ class VelHidden(gymnasium.ObservationWrapper):
 if __name__ == '__main__':
     #torch.autograd.set_detect_anomaly(True)
     torch.set_num_threads(4)
-    torch.set_float32_matmul_precision('high')
-    
+    #torch.set_float32_matmul_precision('high')
+    #torch.set_printoptions(sci_mode=False)
     
     main()
     # profiler.disable()
