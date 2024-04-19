@@ -1,19 +1,16 @@
 from collections import deque
 import gymnasium
 import torch
-from model import PPO, Memory
+from model import PPO
 import numpy as np
-import cProfile
-import pstats
 torch.manual_seed(4020)
-import pickle
 from gymnasium.wrappers import TimeAwareObservation
+from torch.utils.tensorboard import SummaryWriter
 
 def create_envs(num=4):
     envs = []
     for i in range(num):
         env = VelHidden(gymnasium.make('LunarLander-v2'))
-        #env = gymnasium.make("BipedalWalker-v3")
         envs.append(env)
     return envs
 
@@ -22,18 +19,19 @@ def create_envs(num=4):
 def main():
     num_envs = 8
     steps_per_env = 128
-    num_epochs = 5000
+    num_epochs = 300
 
     envs = create_envs(num=num_envs)
     obs_dim = envs[0].observation_space.shape[0]
-    obs_dim = 5
     action_num = envs[0].action_space.n
     env_infos = [
         {"state":None,"env":env, "ep_reward":0, "env_id": i, "reward_memory": [], "hidden_state": None}
         for i, env in enumerate(envs)
     ]
-    agent = PPO(obs_dim, action_num, steps_per_env)
-    # Es braucht viele Episoden bis die Policy stabil ist
+    writer = SummaryWriter(comment="")
+    #writer = None
+    agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
+    # Es braucht viele Episoden is die Policy stabil ist
 
     collect_steps = steps_per_env*num_envs  
     rewards = deque(maxlen=32)
@@ -57,9 +55,11 @@ def main():
                 agent_reward = reward
                 if truncated:
                     print("Truncated")
-                #     agent_reward -= mean_vars
+                    agent_reward -= mean_vars
 
                 agent_reward = agent_reward / mean_vars
+                if truncated:
+                    agent_reward += agent.model.get_value(torch.from_numpy(next_state).clone().float().unsqueeze(0).to(agent.device), new_h)[0].item()
                 agent.record_obs(env_info["state"], env_info["hidden_state"], action, agent_reward, next_state, terminated, truncated, action_prop, env_info["env_id"], exp_collected // len(env_infos))
                 env_info["ep_reward"] += reward 
                 env_info["reward_memory"].append(reward)
@@ -69,25 +69,24 @@ def main():
                 exp_collected += 1
                 
                 if truncated or terminated:
-                    if True: # info["real_done"]:
-                        R = 0
-                        returns = []
-                        for r in reversed(env_info["reward_memory"]):
-                            R = r + 0.99 * R
-                            returns.insert(0, R)
-                        vars.append(np.std(returns))
-                        
-                        env_info["state"] = None
-                        rewards.appendleft(env_info["ep_reward"])
-                        env_info["reward_memory"] = []
-                        env_info["hidden_state"] = None
+                    R = 0
+                    returns = []
+                    for r in reversed(env_info["reward_memory"]):
+                        R = r + 0.99 * R
+                        returns.insert(0, R)
+                    vars.append(np.std(returns))
+                    
+                    env_info["state"] = None
+                    rewards.appendleft(env_info["ep_reward"])
+                    env_info["reward_memory"] = []
+                    env_info["hidden_state"] = None
 
                 if exp_collected >= collect_steps:
                     break
             if exp_collected >= collect_steps:
                     break
         if epoch >= 5:
-            agent.train_epochs_bptt()
+            agent.train_epochs_bptt(epoch)
             
             # Recaclulate most recent hidden state
             for env_info in env_infos:
@@ -112,15 +111,18 @@ def main():
         done=False
         hidden_state = None
         while done == False:
-             action, action_prop, hidden_state = agent.select_action(state, hidden_state)
-             next_state, reward, truncated, terminated, info = test_env.step(action)
-             state = next_state
+             action, action_prop, hidden_state = agent.select_action(state, hidden_state, eval=True)
+             state, reward, truncated, terminated, info = test_env.step(action)
              ep_reward += reward
              if truncated or terminated: # info["real_done"]:
                  break
         #rewards.appendleft(ep_reward)
         print("Epoch " + str(epoch) + "/" + str(num_epochs) + " Avg. Reward: " + str(sum(rewards)/len(rewards)) + " " + str(ep_reward))
-
+        if writer is not None:
+            writer.add_scalar("Avg. train Reward", sum(rewards)/len(rewards), epoch)
+            writer.add_scalar("Test Reward", ep_reward, epoch)
+            writer.add_scalar("Mean Var", mean_vars, epoch)
+        
         if epoch % 100 == 0:
             agent.save_model("SpaceInvaders-v5-agent_" + str(epoch))
 
@@ -183,17 +185,54 @@ class EpisodicLifeEnv(gymnasium.Wrapper[np.ndarray, int, np.ndarray, int]):
 
 class VelHidden(gymnasium.ObservationWrapper):
     def observation(self, obs):
-        obs[[2,3,5]] = 0.0
-        return obs[[0,1,4,6,7]]
+        obs[[2,3]] = 0.0
+        return obs
 
+from gymnasium import spaces
 
+class TestEnv(gymnasium.Env):
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    def __init__(self, render_mode=None, id=0):
+        self.id = id
+        self.size = 5  # The size of the square grid
+        self.window_size = 512  # The size of the PyGame window
+
+        # Observations are dictionaries with the agent's and the target's location.
+        # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
+        self.state_step = 0
+        self.observation_space = spaces.Box(0, 1000, shape=(1,), dtype=int)
+
+        # We have 4 actions, corresponding to "right", "up", "left", "down"
+        self.action_space = spaces.Discrete(4)
+
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        self.render_mode = render_mode
+
+        """
+        If human-rendering is used, `self.window` will be a reference
+        to the window that we draw to. `self.clock` will be a clock that is used
+        to ensure that the environment is rendered at the correct framerate in
+        human-mode. They will remain `None` until human-mode is used for the
+        first time.
+        """
+        self.window = None
+        self.clock = None
+
+    def reset(self, seed=None, options=None):
+        self.state_step = 0
+        return np.array([int(str(self.id) + "0" + str(self.state_step))]), {}
     
+    def step(self, action):
+        self.state_step += 1
+        if self.state_step == 1000:
+            return np.array([int(str(self.id) + "0" + str(self.state_step))]), int(self.state_step%2), True, False, {}
+        return np.array([int(str(self.id) + "0" + str(self.state_step))]), int(self.state_step%2), False, False, {}
 
 if __name__ == '__main__':
-    #torch.autograd.set_detect_anomaly(True)
+    torch.autograd.set_detect_anomaly(True)
     torch.set_num_threads(4)
-    #torch.set_float32_matmul_precision('high')
-    #torch.set_printoptions(sci_mode=False)
+    torch.set_float32_matmul_precision('high')
+    torch.set_printoptions(sci_mode=False)
     
     main()
     # profiler.disable()
