@@ -9,7 +9,7 @@ packaging==24.0
 pip-chill==1.0.3
 pygame==2.5.2
 pyparsing==3.1.2
-python-dateutil==2.9.0.post0
 swig==4.2.1
 torchaudio==2.2.1
 torchvision==0.17.1
+torch-tb-profiler==0.4.3
