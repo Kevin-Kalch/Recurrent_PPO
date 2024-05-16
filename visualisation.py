@@ -12,6 +12,7 @@ def main():
     obs_dim = 12
     agent = PPO(obs_dim, action_num, 1)
     agent.load_model("SpaceInvaders-v5-agent_3800")
+    agent.model.remove_noise()
     while True:
         state, _ = env.reset()
         env.render()

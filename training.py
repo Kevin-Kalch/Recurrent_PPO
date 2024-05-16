@@ -2,22 +2,18 @@ import cProfile
 from collections import deque
 import pstats
 import gymnasium
-import popgym.wrappers
-import popgym.wrappers.previous_action
 import torch
 from model import PPO
 import numpy as np
 torch.manual_seed(4020)
 from gymnasium.wrappers import TimeAwareObservation
 from torch.utils.tensorboard import SummaryWriter
-import popgym
 
 def create_envs(num=4):
     envs = []
     for i in range(num):
         def gen():
             env = LastAction(VelHidden(CustomReward(gymnasium.make('LunarLander-v2'))))
-            #env = popgym.wrappers.DiscreteAction(popgym.wrappers.Flatten(popgym.wrappers.previous_action.PreviousAction((popgym.envs.repeat_first.RepeatFirst()))))
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
         envs.append(gen)
@@ -50,8 +46,6 @@ def main():
     hidden_states = torch.zeros((num_envs, 64)).to(agent.device)
     global_step = 0
     while epoch < num_epochs:
-        if epoch == 5:
-            profiler.enable()
         for step in range(steps_per_env):
             global_step += 1 * num_envs
             action, action_prop, new_h = agent.select_action(states, hidden_states, eval=False)
@@ -232,8 +226,8 @@ if __name__ == '__main__':
     torch.set_printoptions(sci_mode=False)
     
     main()
-    profiler.disable()
-    with open("output.txt", "w+") as f:
-        stats = pstats.Stats(profiler, stream=f).sort_stats('cumtime')
-        stats = stats.strip_dirs()
-        stats.sort_stats('cumtime').print_stats()
+    # profiler.disable()
+    # with open("output.txt", "w+") as f:
+    #     stats = pstats.Stats(profiler, stream=f).sort_stats('cumtime')
+    #     stats = stats.strip_dirs()
+    #     stats.sort_stats('cumtime').print_stats()
