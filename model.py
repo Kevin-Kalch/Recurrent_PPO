@@ -44,9 +44,9 @@ class ACNetwork(nn.Module):
         self.num_in = num_in
         self.num_actions = num_actions
 
-        if len(num_in) == 1: # Linear input
+        if type(num_in) is int: # Linear input
             self.body = nn.Sequential(
-                self.init_weights(nn.Linear(num_in[0], 128)),
+                self.init_weights(nn.Linear(num_in, 128)),
                 nn.LeakyReLU(),
             )
         else: # CNN input
@@ -160,7 +160,7 @@ class TensorMemory:
         if hidden_state is not None:
             self.hidden_state[index] = hidden_state
         self.action[index] = action
-        if self.last_action is not None:
+        if last_action is not None:
             self.last_action[index] = last_action
         self.reward[index] = reward
         self.next_state[index] = next_state
@@ -203,7 +203,7 @@ class PPO(nn.Module):
         self.orig_model = ACNetwork(num_in, num_actions)
         self.model = self.orig_model # torch.compile(self.orig_model, mode="reduce-overhead")
         #self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=3e-4, eps=1e-5)
-        self.model.to(self.device)
+        self.model = self.model.to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4, fused=True)
         self.gamma = gamma
         self.eps_clip = 0.2
@@ -486,7 +486,7 @@ class PPO(nn.Module):
         continue_training = True
         norms = []
         old_model = None
-        for epoch in range(20):
+        for epoch in range(30):
             h = hidden_states[:, 0, :]
             with torch.no_grad():
                 if epoch == 0 or True:

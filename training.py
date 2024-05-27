@@ -46,6 +46,10 @@ def main():
     hidden_states = torch.zeros((num_envs, 64)).to(agent.device)
     global_step = 0
     while epoch < num_epochs:
+        agent.actor.sample_noise()
+        agent.critic.sample_noise()
+        agent.actor.eval()
+        agent.critic.eval()
         for step in range(steps_per_env):
             global_step += 1 * num_envs
             action, action_prop, new_h = agent.select_action(states, hidden_states, eval=False)
@@ -78,6 +82,8 @@ def main():
             hidden_states = new_h
 
         if epoch >= 5:
+            agent.actor.train()
+            agent.critic.train()
             agent.train_epochs_bptt_2(epoch)
             
             # Recaclulate most recent hidden state
