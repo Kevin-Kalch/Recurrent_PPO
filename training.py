@@ -1,130 +1,127 @@
+import cProfile
 from collections import deque
+import pstats
 import gymnasium
 import torch
-from model import PPO, Memory
+from model import PPO
 import numpy as np
-import cProfile
-import pstats
 torch.manual_seed(4020)
-import pickle
 from gymnasium.wrappers import TimeAwareObservation
+from torch.utils.tensorboard import SummaryWriter
 
 def create_envs(num=4):
     envs = []
     for i in range(num):
-        env = VelHidden(gymnasium.make('LunarLander-v2'))
-        #env = gymnasium.make("BipedalWalker-v3")
-        envs.append(env)
+        def gen():
+            env = LastAction(VelHidden(CustomReward(gymnasium.make('LunarLander-v2'))))
+            env = gymnasium.wrappers.RecordEpisodeStatistics(env)
+            return env
+        envs.append(gen)
+    envs = gymnasium.vector.SyncVectorEnv(envs)
     return envs
 
-#profiler = cProfile.Profile()
+profiler = cProfile.Profile()
 
 def main():
-    num_envs = 8
+    num_envs = 16
     steps_per_env = 128
-    num_epochs = 5000
+    num_epochs = 100000
 
     envs = create_envs(num=num_envs)
-    obs_dim = envs[0].observation_space.shape[0]
-    action_num = envs[0].action_space.n
-    env_infos = [
-        {"state":None,"env":env, "ep_reward":0, "env_id": i, "reward_memory": [], "hidden_state": None}
-        for i, env in enumerate(envs)
-    ]
-    agent = PPO(obs_dim, action_num, steps_per_env)
-    # Es braucht viele Episoden bis die Policy stabil ist
+    obs_dim = envs.observation_space.shape[1]
+    action_num = envs.action_space[0].n
+    writer = SummaryWriter(comment="custom_reward")
+    #writer = None
+    agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
+    # Es braucht viele Episoden is die Policy stabil ist
 
-    collect_steps = steps_per_env*num_envs  
     rewards = deque(maxlen=32)
-    vars = []
+    rewards_per_env = {i: [] for i in range(num_envs)}
+    vars = deque(maxlen=128)
     mean_vars = 1
     rewards.appendleft(0)
 
     epoch = 0
+    states, _ = envs.reset()
+    hidden_states = torch.zeros((num_envs, 64)).to(agent.device)
+    global_step = 0
     while epoch < num_epochs:
-        # if epoch == 1:
-        #     profiler.enable()
-        exp_collected = 0
-        obs = []
-        env_steps = []
-        while exp_collected < collect_steps:
-            for env_info in env_infos:
-                if env_info["state"] is None:
-                    env_info["state"], _ = env_info["env"].reset()
-                    env_info["ep_reward"] = 0
+        agent.actor.sample_noise()
+        agent.critic.sample_noise()
+        agent.actor.eval()
+        agent.critic.eval()
+        for step in range(steps_per_env):
+            global_step += 1 * num_envs
+            action, action_prop, new_h = agent.select_action(states, hidden_states, eval=False)
+            next_state, reward, terminated, truncated, info = envs.step(action)
 
-                env_steps.append(exp_collected // len(env_infos))
-                action, action_prop, new_h = agent.select_action(env_info["state"], env_info["hidden_state"])
-                next_state, reward, terminated, truncated, info = env_info["env"].step(action)
-                agent_reward = reward
-                if truncated:
-                  agent_reward -= mean_vars
+            agent_reward = reward
+            agent_reward = agent_reward / mean_vars
+            
+            for i in range(num_envs):
+                rewards_per_env[i].append(reward[i])
+                agent.record_obs(states[i], hidden_states[i], action[i], agent_reward[i], next_state[i], terminated[i], truncated[i], action_prop[i], i, step)
+                if info != {}:
+                    if terminated[i] or truncated[i]: 
+                        agent.memory[i].next_state[step] = torch.FloatTensor(info["final_observation"][i]) / agent.obs_max
+                        rewards.appendleft(info["final_info"][i]["episode"]["r"])
+                        writer.add_scalar("charts/episodic_return", info["final_info"][i]["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["final_info"][i]["episode"]["l"], global_step)
+                        new_h[i] = torch.zeros((1, 64)).to(agent.device)
 
-                agent_reward = agent_reward / mean_vars
-                agent.record_obs(env_info["state"], env_info["hidden_state"], action, agent_reward, next_state, terminated, truncated, action_prop, env_info["env_id"], exp_collected // len(env_infos))
-                env_info["ep_reward"] += reward 
-                env_info["reward_memory"].append(reward)
-                
-                env_info["state"] = next_state
-                env_info["hidden_state"] = new_h
-                exp_collected += 1
-                
-                if truncated or terminated:
-                    if True: # info["real_done"]:
+                        # Calculate return
                         R = 0
                         returns = []
-                        for r in reversed(env_info["reward_memory"]):
-                            R = r + 0.99 * R
+                        for t in reversed(range(len(rewards_per_env[i]))):
+                            R = rewards_per_env[i][t] + agent.gamma * R
                             returns.insert(0, R)
-                        vars.append(np.std(returns))
-                        
-                        env_info["state"] = None
-                        rewards.appendleft(env_info["ep_reward"])
-                        env_info["reward_memory"] = []
-                        env_info["hidden_state"] = None
+                        vars.append(np.var(returns))
+                        rewards_per_env[i] = []
 
-                    obs.append(next_state)
+            states = next_state
+            hidden_states = new_h
 
-                if exp_collected > collect_steps:
-                    break
-            if exp_collected > collect_steps:
-                    break
         if epoch >= 5:
-            agent.train_epochs_bptt()
+            agent.actor.train()
+            agent.critic.train()
+            agent.train_epochs_bptt_2(epoch)
             
             # Recaclulate most recent hidden state
-            for env_info in env_infos:
-                if env_info["hidden_state"] is not None:
-                    state = agent.memory[env_info["env_id"]].state[-1].unsqueeze(0).to(agent.device)
-                    h_state = agent.memory[env_info["env_id"]].hidden_state[-2].unsqueeze(0).to(agent.device)
+            for i in range(num_envs):
+                if not agent.memory[i].terminated[steps_per_env-1] and not agent.memory[i].truncated[steps_per_env-1]:
+                    state = agent.memory[i].state[steps_per_env-1].unsqueeze(0).to(agent.device)
+                    h_state = agent.memory[i].hidden_state[steps_per_env-1].unsqueeze(0).to(agent.device)
                     _, _, new_h = agent.model(state, h_state)
-                    env_info["hidden_state"] = new_h.detach().cpu()
+                    hidden_states[i] = new_h.detach().cpu()
             agent.memory = {}
         else:
             agent.memory = {}
 
-        if len(vars) > 3 and len(vars) < 128:
-            mean_vars = np.max(vars) + 1e-8
+        if epoch < 100:
+            mean_vars = np.mean(vars) + 1e-8
         print(np.mean(mean_vars))
         
         epoch += 1
 
-        test_env = create_envs(num=1)[0]
+        test_env = LastAction(VelHidden(gymnasium.make('LunarLander-v2')))
         state, _ = test_env.reset()
         ep_reward = 0
         done=False
-        hidden_state = None
+        hidden_state = torch.zeros((1, 64))
         while done == False:
-             action, action_prop, hidden_state = agent.select_action(state, hidden_state)
-             next_state, reward, truncated, terminated, info = test_env.step(action)
-             state = next_state
+             action, action_prop, hidden_state = agent.select_action(state, hidden_state, eval=True)
+             state, reward, truncated, terminated, info = test_env.step(action)
              ep_reward += reward
              if truncated or terminated: # info["real_done"]:
                  break
         #rewards.appendleft(ep_reward)
         print("Epoch " + str(epoch) + "/" + str(num_epochs) + " Avg. Reward: " + str(sum(rewards)/len(rewards)) + " " + str(ep_reward))
-
-        if epoch % 10 == 0:
+        if writer is not None:
+            writer.add_scalar("Avg. train Reward", sum(rewards)/len(rewards), epoch)
+            writer.add_scalar("Test Reward", ep_reward, epoch)
+            writer.add_scalar("Mean Var", mean_vars, epoch)
+        
+        if epoch % 100 == 0:
             agent.save_model("SpaceInvaders-v5-agent_" + str(epoch))
 
 
@@ -186,17 +183,53 @@ class EpisodicLifeEnv(gymnasium.Wrapper[np.ndarray, int, np.ndarray, int]):
 
 class VelHidden(gymnasium.ObservationWrapper):
     def observation(self, obs):
-        obs[[2,3,5]] = 0.0
+        obs[[2,3]] = 0.0
         return obs
-
-
     
+class CustomReward(gymnasium.Wrapper):
+    def step(self, action):
+        next_state, reward, terminated, truncated, info = super().step(action)
+        reward = -np.abs(next_state[0:6]).sum()
+        return next_state, reward, terminated, truncated, info
+    
+class OutsideViewport(gymnasium.Wrapper):
+    def step(self, action):
+        next_state, reward, terminated, truncated, info = super().step(action)
+        if next_state[1] > 1.5:
+            terminated = True
+            reward = -100
+        if next_state[0] < -1.5 or next_state[0] > 1.5:
+            terminated = True
+            reward = -100
+        return next_state, reward, terminated, truncated, info
+
+class LastAction(gymnasium.Wrapper):
+    def __init__(self, env: gymnasium.Env):
+        super().__init__(env)
+        self.observation_space = gymnasium.spaces.Box(
+            low=np.append(self.observation_space.low, np.zeros(self.action_space.n)), 
+            high=np.append(self.observation_space.high, np.ones(self.action_space.n)), 
+            shape=(env.observation_space.shape[0] + self.action_space.n,), 
+            dtype=np.float32)
+
+    def step(self, action):
+        next_state, reward, terminated, truncated, info = super().step(action)
+        actions = np.zeros(self.action_space.n)
+        actions[action] = 1
+        next_state = np.append(next_state, actions)
+        return next_state, reward, terminated, truncated, info
+    
+    def reset(self, seed=None, options=None):
+        state, info = super().reset(seed=seed, options=options)
+        state = np.append(state, np.zeros(self.action_space.n))
+        return state, info
+
 
 if __name__ == '__main__':
     #torch.autograd.set_detect_anomaly(True)
     torch.set_num_threads(4)
     torch.set_float32_matmul_precision('high')
-    
+    torch.set_printoptions(sci_mode=False)
     
     main()
     # profiler.disable()
