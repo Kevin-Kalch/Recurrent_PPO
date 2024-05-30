@@ -13,7 +13,7 @@ def create_envs(num=4):
     envs = []
     for i in range(num):
         def gen():
-            env = LastAction(VelHidden(CustomReward(gymnasium.make('LunarLander-v2'))))
+            env = LastAction(VelHidden(OutsideViewport(gymnasium.make('LunarLander-v2'))))
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
         envs.append(gen)
@@ -30,14 +30,14 @@ def main():
     envs = create_envs(num=num_envs)
     obs_dim = envs.observation_space.shape[1]
     action_num = envs.action_space[0].n
-    writer = SummaryWriter(comment="custom_reward")
+    writer = SummaryWriter(comment="noise_adjustments")
     #writer = None
     agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
     # Es braucht viele Episoden is die Policy stabil ist
 
     rewards = deque(maxlen=32)
     rewards_per_env = {i: [] for i in range(num_envs)}
-    vars = deque(maxlen=128)
+    vars = deque(maxlen=4096)
     mean_vars = 1
     rewards.appendleft(0)
 
@@ -46,13 +46,11 @@ def main():
     hidden_states = torch.zeros((num_envs, 64)).to(agent.device)
     global_step = 0
     while epoch < num_epochs:
-        agent.actor.sample_noise()
-        agent.critic.sample_noise()
-        agent.actor.eval()
-        agent.critic.eval()
+        agent.model.sample_noise()
+        agent.model.eval()
         for step in range(steps_per_env):
             global_step += 1 * num_envs
-            action, action_prop, new_h = agent.select_action(states, hidden_states, eval=False)
+            action, action_prop, new_h = agent.select_action(states, None, hidden_states, eval=False)
             next_state, reward, terminated, truncated, info = envs.step(action)
 
             agent_reward = reward
@@ -60,7 +58,7 @@ def main():
             
             for i in range(num_envs):
                 rewards_per_env[i].append(reward[i])
-                agent.record_obs(states[i], hidden_states[i], action[i], agent_reward[i], next_state[i], terminated[i], truncated[i], action_prop[i], i, step)
+                agent.record_obs(states[i], hidden_states[i], action[i], None, agent_reward[i], next_state[i], terminated[i], truncated[i], action_prop[i], i, step)
                 if info != {}:
                     if terminated[i] or truncated[i]: 
                         agent.memory[i].next_state[step] = torch.FloatTensor(info["final_observation"][i]) / agent.obs_max
@@ -75,15 +73,14 @@ def main():
                         for t in reversed(range(len(rewards_per_env[i]))):
                             R = rewards_per_env[i][t] + agent.gamma * R
                             returns.insert(0, R)
-                        vars.append(np.var(returns))
+                        vars.append(np.mean(np.abs(returns)))
                         rewards_per_env[i] = []
 
             states = next_state
             hidden_states = new_h
 
         if epoch >= 5:
-            agent.actor.train()
-            agent.critic.train()
+            agent.model.train()
             agent.train_epochs_bptt_2(epoch)
             
             # Recaclulate most recent hidden state
@@ -91,13 +88,13 @@ def main():
                 if not agent.memory[i].terminated[steps_per_env-1] and not agent.memory[i].truncated[steps_per_env-1]:
                     state = agent.memory[i].state[steps_per_env-1].unsqueeze(0).to(agent.device)
                     h_state = agent.memory[i].hidden_state[steps_per_env-1].unsqueeze(0).to(agent.device)
-                    _, _, new_h = agent.model(state, h_state)
+                    _, _, new_h = agent.model(state, None, h_state)
                     hidden_states[i] = new_h.detach().cpu()
             agent.memory = {}
         else:
             agent.memory = {}
 
-        if epoch < 100:
+        if epoch < 20:
             mean_vars = np.mean(vars) + 1e-8
         print(np.mean(mean_vars))
         
@@ -109,7 +106,7 @@ def main():
         done=False
         hidden_state = torch.zeros((1, 64))
         while done == False:
-             action, action_prop, hidden_state = agent.select_action(state, hidden_state, eval=True)
+             action, action_prop, hidden_state = agent.select_action(state, None, hidden_state, eval=True)
              state, reward, truncated, terminated, info = test_env.step(action)
              ep_reward += reward
              if truncated or terminated: # info["real_done"]:

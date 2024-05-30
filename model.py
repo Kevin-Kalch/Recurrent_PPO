@@ -38,6 +38,7 @@ class NoisyLinear(nn.Linear):
     self.epsilon_weight = torch.zeros(self.out_features, self.in_features)
     self.epsilon_bias = torch.zeros(self.out_features)
 
+# https://arxiv.org/pdf/1706.01905
 class ACNetwork(nn.Module):
     def __init__(self, num_in, num_actions) -> None:
         super(ACNetwork, self).__init__()
@@ -63,7 +64,7 @@ class ACNetwork(nn.Module):
             )          
 
         self.core = nn.Sequential(
-            self.init_weights(nn.Linear(512+64+self.num_actions, 256)), 
+            self.init_weights(nn.Linear(128+64+self.num_actions, 256)), 
             nn.LeakyReLU(),
         )
         self.rnn = nn.GRUCell(256, 64)
@@ -75,15 +76,16 @@ class ACNetwork(nn.Module):
 
         self.policy = nn.Sequential(
             self.init_weights(NoisyLinear(256, 64), std=0.01),
+            nn.LayerNorm(64),
             nn.LeakyReLU(),
-            self.init_weights(NoisyLinear(64, num_actions), std=0.01),
+            self.init_weights(nn.Linear(64, num_actions), std=0.01),
             nn.Softmax(dim=1)
         )
 
         self.value = nn.Sequential(
-            self.init_weights(NoisyLinear(256, 64), std=1),
+            self.init_weights(nn.Linear(256, 64), std=1),
             nn.LeakyReLU(),
-            self.init_weights(NoisyLinear(64, 1), std=1),
+            self.init_weights(nn.Linear(64, 1), std=1),
         )
 
     def sample_noise(self):
@@ -104,9 +106,9 @@ class ACNetwork(nn.Module):
  
     def forward(self, obs, last_action, h):
         if h is None:
-            h = torch.zeros((obs.size(0), 64)).to(obs.device)
+            h = torch.zeros((obs.size(0), 64), device=obs.device)
         if last_action is None:
-            last_action = torch.zeros((obs.size(0), self.num_actions)).to(obs.device)
+            last_action = torch.zeros((obs.size(0), self.num_actions), device=obs.device)
         body_out = self.body(obs)
         core_out = self.core(torch.concat((body_out, h, last_action), dim=1))
         h_new = self.rnn(core_out, h)
@@ -115,9 +117,9 @@ class ACNetwork(nn.Module):
     #@torch.autocast(device_type="cuda")
     def get_action(self, obs, last_action, h):
         if h is None:
-            h = torch.zeros((obs.size(0), 64)).to(obs.device)
+            h = torch.zeros((obs.size(0), 64), device=obs.device)
         if last_action is None:
-            last_action = torch.zeros((obs.size(0), self.num_actions)).to(obs.device)
+            last_action = torch.zeros((obs.size(0), self.num_actions), device=obs.device)
 
         body_out = self.body(obs)
         core_out = self.core(torch.concat((body_out, h, last_action), dim=1))
@@ -128,9 +130,9 @@ class ACNetwork(nn.Module):
     
     def get_value(self, obs, last_action, h):
         if h is None:
-            h = torch.zeros((obs.size(0), 64)).to(obs.device)
+            h = torch.zeros((obs.size(0), 64), device=obs.device)
         if last_action is None:
-            last_action = torch.zeros((obs.size(0), self.num_actions)).to(obs.device)
+            last_action = torch.zeros((obs.size(0), self.num_actions), device=obs.device)
 
         body_out = self.body(obs)
         core_out = self.core(torch.concat((body_out, h, last_action), dim=1))
@@ -215,7 +217,7 @@ class PPO(nn.Module):
             num_in = [num_in]
         self.state_size = num_in
         self.obs_max = nn.Parameter(torch.ones((num_in), dtype=torch.float32), requires_grad=False)
-        #self.obs_max.data = torch.tensor([1.5, 1.5, 1.0, 1.0, 3.1415927, 5.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=torch.float32)
+        self.obs_max.data = torch.tensor([1.5, 1.5, 1.0, 1.0, 3.1415927, 5.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=torch.float32)
         self.target_kl = 0.01 #0.01
         self.beta = 3
         self.num_actions = num_actions
@@ -457,20 +459,18 @@ class PPO(nn.Module):
             self.writer.add_scalar("train/world_loss", sum(world_losses) / len(world_losses), optim_epoch)
 
     def train_epochs_bptt_2(self, optim_epoch):
-        #self.update_obs_max()
-
         self.model = self.model.to(self.device)
 
         states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask = self.prepareData()
 
-        # states = states.to(self.device)
-        # hidden_states = hidden_states.to(self.device)
-        # old_probs = old_probs.to(self.device)
-        # actions = actions.to(self.device)
-        # next_states = next_states.to(self.device)
-        # #rewards = rewards.to(self.device)
-        # #dones = dones.to(self.device)
-        # loss_mask = loss_mask.to(self.device)
+        states = states.to(self.device)
+        hidden_states = hidden_states.to(self.device)
+        old_probs = old_probs.to(self.device)
+        actions = actions.to(self.device)
+        next_states = next_states.to(self.device)
+        rewards = rewards.to(self.device)
+        dones = dones.to(self.device)
+        loss_mask = loss_mask.to(self.device)
 
         rnd = Random()
         batch_seq_length = states.size(1)//4
@@ -486,47 +486,43 @@ class PPO(nn.Module):
         continue_training = True
         norms = []
         old_model = None
-        for epoch in range(30):
+        for epoch in range(11):
             h = hidden_states[:, 0, :]
             with torch.no_grad():
                 if epoch == 0 or True:
                     values = []
-                    if epoch == 0:
-                        next_values = []
+                    next_values = []
                     for i in range(states.size(1)): # seq length, :]
                         probs, value, h = self.model(states[:, i, :].to(self.device), last_actions[:, i, :].to(self.device), hidden_states[:, i, :].to(self.device))
-                        next_action = torch.zeros((states[:, i, :].size(0), self.num_actions), dtype=torch.float32).to(self.device)
+                        next_action = torch.zeros((states[:, i, :].size(0), self.num_actions), dtype=torch.float32, device=self.device)
                         next_action[torch.arange(states[:, i, :].size(0)), actions[:, i]] = 1
-                        next_value, h_n = self.model.get_value(next_states[:, i, :].to(self.device), next_action, h)
+                        next_value, h_n = self.model.get_value(next_states[:, i, :].to(self.device), None, h)
                         
                         values.append(value.squeeze())
-                        if epoch == 0:
-                            next_values.append(next_value.squeeze())
+                        next_values.append(next_value.squeeze())
 
                         if i != (states.size(1)-1):
                             done_mask = (dones[:, i] == True).to(self.device)
                             not_done_mask = (dones[:, i] == False).to(self.device)
-                            h[done_mask] = hidden_states[done_mask.cpu(), i+1, :].to(self.device)
-                            hidden_states[not_done_mask, i+1, :] = h[not_done_mask].cpu()
+                            h[done_mask] = hidden_states[done_mask, i+1, :].to(self.device)
+                            hidden_states[not_done_mask, i+1, :] = h[not_done_mask]
                     
 
-                    values = torch.stack(values, dim=1).cpu()
+                    values = torch.stack(values, dim=1)
                     values = values
-                    if epoch == 0:
-                        next_values = torch.stack(next_values, dim=1).cpu()
-                        returns = self.calculate_returns(rewards, values, next_values, terminated, truncated, self.gamma)
-                        returns = returns
+                    next_values = torch.stack(next_values, dim=1)
+                    returns = self.calculate_returns(rewards, values, next_values, terminated, truncated, self.gamma)
+                    returns = returns.to(self.device)
 
                     advantages = returns - values
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                     advantages = torch.clamp(advantages, torch.quantile(advantages, 0.05), torch.quantile(advantages, 0.95))
                     advantages = advantages
                     
+                    returns = returns.to(self.device)
+                    advantages = advantages.to(self.device)
 
-                    if continue_training == False: # or epoch == 5:
-                        for i in range(len(self.memory.keys())):
-                            #self.memory[i, :].hidden_state = hidden_states[i, :len(self.memory[i, :].hidden_state)].cpu()
-                            pass
+                    if continue_training == False or epoch == 10:
                         break
 
             h = hidden_states[:, 0, :].to(self.device)
@@ -549,18 +545,13 @@ class PPO(nn.Module):
                 seq_old_log_probs[:, i%batch_seq_length] = b_old_log_probs
 
                 ratios = torch.exp(log_probs - b_old_log_probs)
-                #surr1 = ratios * torch.clamp(advantages[:, i], torch.quantile(advantages[:, i], 0.05), torch.quantile(advantages[:, i], 0.95))
-                #surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * torch.clamp(advantages[:, i], torch.quantile(advantages[:, i], 0.05), torch.quantile(advantages[:, i], 0.95))
                 surr1 = ratios * advantages[:, i].to(self.device)
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages[:, i].to(self.device)
                 clip_fraction = torch.mean((torch.abs(ratios - 1) > self.eps_clip).float()).item()
                 clip_fractions.append(clip_fraction)
                 
                 policy_loss = -(torch.min(surr1, surr2))
-                #pred_value_clipped = returns[:, i] + torch.clamp(pred_value - returns[:, i], -0.5, 0.5)
-                #value_loss = 0.5 * (returns[:, i]-pred_value_clipped).pow(2).mean()
                 value_loss = (returns[:, i].to(self.device)-pred_value).pow(2)
-                #value_loss = torch.clamp(value_loss, torch.quantile(value_loss, 0.05), torch.quantile(value_loss, 0.95)).mean()
                 entropy_loss = -torch.clamp(ent, max=1.)
 
                 loss = (policy_loss + 1.0 * value_loss + 0 * entropy_loss) * loss_mask[:, i].to(self.device) * (loss_mask[:, i].to(self.device).size(0) / loss_mask[:, i].to(self.device).sum())
@@ -606,11 +597,16 @@ class PPO(nn.Module):
                             total_norm += param_norm.item() ** 2
                     total_norm = total_norm ** (1. / 2)
                     norms.append(total_norm)
-                    #h = h.detach()
+                    h = h.detach()
 
                     torch.nn.utils.clip_grad.clip_grad_norm_(self.model.parameters(), 0.5)
                     self.optimizer.step()
                     self.optimizer.zero_grad()
+
+        for i, key in enumerate(sorted(self.memory.keys())):
+            self.memory[key].hidden_state = hidden_states[i, :len(self.memory[i].hidden_state)].cpu()
+
+        self.update_obs_max()
                 
         print("Policy Loss: " + str(sum(policy_losses) / len(policy_losses)) + " Value Loss: " + str(sum(value_losses) / len(value_losses)) + " Ent Loss: " + str(sum(ents) / len(ents)))
         if len(norms) > 0:
