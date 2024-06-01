@@ -8,12 +8,14 @@ import numpy as np
 torch.manual_seed(4020)
 from gymnasium.wrappers import TimeAwareObservation
 from torch.utils.tensorboard import SummaryWriter
+import flappy_bird_gymnasium
 
 def create_envs(num=4):
     envs = []
     for i in range(num):
         def gen():
-            env = LastAction(VelHidden(OutsideViewport(gymnasium.make('LunarLander-v2'))))
+            #env = LastAction(VelHidden(OutsideViewport(gymnasium.make('LunarLander-v2'))))
+            env = LastAction(gymnasium.make('FlappyBird-v0', use_lidar=True))
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
         envs.append(gen)
@@ -30,7 +32,7 @@ def main():
     envs = create_envs(num=num_envs)
     obs_dim = envs.observation_space.shape[1]
     action_num = envs.action_space[0].n
-    writer = SummaryWriter(comment="noise_adjustments")
+    writer = SummaryWriter(comment="flappy_bird")
     #writer = None
     agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
     # Es braucht viele Episoden is die Policy stabil ist
@@ -100,11 +102,12 @@ def main():
         
         epoch += 1
 
-        test_env = LastAction(VelHidden(gymnasium.make('LunarLander-v2')))
+        test_env = LastAction(gymnasium.make('FlappyBird-v0', use_lidar=True))
         state, _ = test_env.reset()
         ep_reward = 0
         done=False
         hidden_state = torch.zeros((1, 64))
+        agent.model.remove_noise()
         while done == False:
              action, action_prop, hidden_state = agent.select_action(state, None, hidden_state, eval=True)
              state, reward, truncated, terminated, info = test_env.step(action)
@@ -119,7 +122,7 @@ def main():
             writer.add_scalar("Mean Var", mean_vars, epoch)
         
         if epoch % 100 == 0:
-            agent.save_model("SpaceInvaders-v5-agent_" + str(epoch))
+            agent.save_model("FlappyBird-agent_" + str(epoch))
 
 
 
@@ -183,12 +186,6 @@ class VelHidden(gymnasium.ObservationWrapper):
         obs[[2,3]] = 0.0
         return obs
     
-class CustomReward(gymnasium.Wrapper):
-    def step(self, action):
-        next_state, reward, terminated, truncated, info = super().step(action)
-        reward = -np.abs(next_state[0:6]).sum()
-        return next_state, reward, terminated, truncated, info
-    
 class OutsideViewport(gymnasium.Wrapper):
     def step(self, action):
         next_state, reward, terminated, truncated, info = super().step(action)
@@ -224,9 +221,10 @@ class LastAction(gymnasium.Wrapper):
 
 if __name__ == '__main__':
     #torch.autograd.set_detect_anomaly(True)
-    torch.set_num_threads(4)
+    torch.set_num_threads(24)
     torch.set_float32_matmul_precision('high')
     torch.set_printoptions(sci_mode=False)
+    torch.backends.cudnn.benchmark = True
     
     main()
     # profiler.disable()

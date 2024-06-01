@@ -3,15 +3,15 @@ import gymnasium
 from model import PPO
 import numpy as np
 from gymnasium.wrappers import TimeAwareObservation
+import flappy_bird_gymnasium
 
 def main():
     #env = gymnasium.make('ALE/SpaceInvaders-v5', obs_type="ram", render_mode="human")
-    env = LastAction(VelHidden(gymnasium.make('LunarLander-v2', render_mode="human")))
+    env = LastAction(VelHidden(gymnasium.make('FlappyBird-v0', render_mode="human", use_lidar=True)))
     obs_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
-    obs_dim = 12
     agent = PPO(obs_dim, action_num, 1)
-    agent.load_model("SpaceInvaders-v5-agent_3800")
+    agent.load_model("FlappyBird-agent_200")
     agent.model.remove_noise()
     while True:
         state, _ = env.reset()
@@ -20,15 +20,15 @@ def main():
         done=False
         h = None
         while done == False:
-            action, _, h = agent.select_action(state, h, eval=False)
-            next_state, reward, done, terminated, _ = env.step(action[0])
+            action, _, h = agent.select_action(state, None, h, eval=True)
+            next_state, reward, done, terminated, _ = env.step(action)
             ep_reward += reward
             if done or terminated:
                 h = None
                 break
             state = next_state
-            #env.render()
-            time.sleep(0.001)
+            env.render()
+            #time.sleep(0.001)
 
 class VelHidden(gymnasium.ObservationWrapper):
     def observation(self, obs):

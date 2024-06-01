@@ -199,7 +199,7 @@ class ListMemory:
 
 
 class PPO(nn.Module):
-    def __init__(self, num_in, num_actions, env_buffer_size, gamma=0.995, writer=None):
+    def __init__(self, num_in, num_actions, env_buffer_size, gamma=0.99, writer=None):
         super(PPO, self).__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
         self.orig_model = ACNetwork(num_in, num_actions)
@@ -209,19 +209,14 @@ class PPO(nn.Module):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4, fused=True)
         self.gamma = gamma
         self.eps_clip = 0.2
-        
         self.memory = {}
-        
         self.env_buffer_size = env_buffer_size
         if type(num_in) == int:            
             num_in = [num_in]
         self.state_size = num_in
         self.obs_max = nn.Parameter(torch.ones((num_in), dtype=torch.float32), requires_grad=False)
-        self.obs_max.data = torch.tensor([1.5, 1.5, 1.0, 1.0, 3.1415927, 5.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=torch.float32)
-        self.target_kl = 0.01 #0.01
-        self.beta = 3
+        #self.obs_max.data = torch.tensor([1.5, 1.5, 1.0, 1.0, 3.1415927, 5.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=torch.float32)
         self.num_actions = num_actions
-        self.burn_in_steps = 2
         self.writer = writer
 
     @torch.no_grad()
@@ -241,8 +236,6 @@ class PPO(nn.Module):
 
         probs = probs.cpu()
         action = (probs.cumsum(-1) >= rand(probs.shape[:-1])[..., None]).byte().argmax(-1)
-        # m = Categorical(probs)
-        # action = m.sample()
         if eval:
             action = probs.argmax()
         return action.cpu().detach().numpy(), probs.detach(), h_new.cpu().detach()
@@ -557,8 +550,6 @@ class PPO(nn.Module):
                 loss = (policy_loss + 1.0 * value_loss + 0 * entropy_loss) * loss_mask[:, i].to(self.device) * (loss_mask[:, i].to(self.device).size(0) / loss_mask[:, i].to(self.device).sum())
                 loss = loss.mean() / batch_seq_length
                 loss.backward(retain_graph=True)
-                #total_loss += loss / batch_seq_length
-                #loss = loss / batch_seq_length
                 policy_losses.append(((policy_loss * loss_mask[:, i].to(self.device)).sum() / loss_mask[:, i].to(self.device).sum()).cpu().item())
                 value_losses.append(((value_loss * loss_mask[:, i].to(self.device)).sum() / loss_mask[:, i].to(self.device).sum()).cpu().item())
                 ents.append(((ent * loss_mask[:, i].to(self.device)).sum() / loss_mask[:, i].to(self.device).sum()).cpu().item())
@@ -567,7 +558,6 @@ class PPO(nn.Module):
                 not_done_mask = (dones[:, i] == False).to(self.device).int()
                 if i != states.size(1)-1:
                     h = h * not_done_mask[:, None] + hidden_states[:, i+1].to(self.device) * done_mask[:, None]
-                    #hidden_states[not_done_mask, i+1, :] = h[not_done_mask].detach()
                 
                 seq_mask[:, i%batch_seq_length] = loss_mask[:, i].to(self.device)
                 
@@ -578,7 +568,7 @@ class PPO(nn.Module):
                         log_ratio = log_ratio[(seq_mask == 1).flatten()]
                         approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
                         kl_divs.append(approx_kl_div)
-                        if self.target_kl is not None and abs(approx_kl_div) > 1.5 * 0.02:
+                        if abs(approx_kl_div) > 1.5 * 0.05:
                             if old_model is not None:
                                 self.model.load_state_dict(old_model)
                             continue_training = False
@@ -586,10 +576,6 @@ class PPO(nn.Module):
                             break
 
                     #old_model = self.model.state_dict()
-                    
-                    #total_loss.backward(retain_graph=True)
-                    total_loss = 0
-
                     total_norm = 0
                     for p in self.model.parameters():
                         if p.grad is not None:
