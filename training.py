@@ -8,14 +8,14 @@ import numpy as np
 torch.manual_seed(4020)
 from gymnasium.wrappers import TimeAwareObservation
 from torch.utils.tensorboard import SummaryWriter
-import flappy_bird_gymnasium
+#import flappy_bird_gymnasium
 
 def create_envs(num=4):
     envs = []
     for i in range(num):
         def gen():
-            #env = LastAction(VelHidden(OutsideViewport(gymnasium.make('LunarLander-v2'))))
-            env = LastAction(gymnasium.make('FlappyBird-v0', use_lidar=True))
+            env = LastAction(VelHidden(OutsideViewport(gymnasium.make('LunarLander-v2'))))
+            #env = LastAction(gymnasium.make('FlappyBird-v0', use_lidar=True))
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
         envs.append(gen)
@@ -32,7 +32,7 @@ def main():
     envs = create_envs(num=num_envs)
     obs_dim = envs.observation_space.shape[1]
     action_num = envs.action_space[0].n
-    writer = SummaryWriter(comment="flappy_bird")
+    writer = SummaryWriter(comment="gae")
     #writer = None
     agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
     # Es braucht viele Episoden is die Policy stabil ist
@@ -96,13 +96,13 @@ def main():
         else:
             agent.memory = {}
 
-        if epoch < 20:
+        if epoch < 100:
             mean_vars = np.mean(vars) + 1e-8
         print(np.mean(mean_vars))
         
         epoch += 1
 
-        test_env = LastAction(gymnasium.make('FlappyBird-v0', use_lidar=True))
+        test_env = LastAction(VelHidden(gymnasium.make('LunarLander-v2')))
         state, _ = test_env.reset()
         ep_reward = 0
         done=False
@@ -122,7 +122,7 @@ def main():
             writer.add_scalar("Mean Var", mean_vars, epoch)
         
         if epoch % 100 == 0:
-            agent.save_model("FlappyBird-agent_" + str(epoch))
+            agent.save_model("LunarLander-agent_" + str(epoch))
 
 
 

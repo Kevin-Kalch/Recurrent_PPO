@@ -507,7 +507,7 @@ class PPO(nn.Module):
                     returns = self.calculate_returns(rewards, values, next_values, terminated, truncated, self.gamma)
                     returns = returns.to(self.device)
 
-                    advantages = returns - values
+                    advantages = self.calculate_advantages(rewards, values, next_values, terminated, truncated, self.gamma, 0.95)
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                     advantages = torch.clamp(advantages, torch.quantile(advantages, 0.05), torch.quantile(advantages, 0.95))
                     advantages = advantages
@@ -689,7 +689,7 @@ class PPO(nn.Module):
         returns = torch.tensor(returns)
         return returns
     
-    def calculate_advantages(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay, returns):
+    def calculate_advantages(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay):
         advantages = []
         for traj_rewards, traj_values, traj_nvalues, traj_term, traj_trunc in zip(rewards, values, next_values, terminated, truncated):
             adv = 0
@@ -710,7 +710,7 @@ class PPO(nn.Module):
                 tarj_advantages.insert(0, adv)
             advantages.append(tarj_advantages)
 
-        advantages = returns.cpu() - values.cpu()
+        advantages = torch.tensor(advantages)
         return advantages
         
     
