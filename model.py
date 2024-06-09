@@ -547,11 +547,11 @@ class PPO(nn.Module):
                     terminated = terminated.to(self.device)
                     truncated = truncated.to(self.device)
                     #if epoch == 0:
-                    #    returns = self.calculate_returns_v2(rewards, values, next_values, terminated, truncated, self.gamma)
+                    #    returns = self.calculate_returns(rewards, values, next_values, terminated, truncated, self.gamma)
                     #returns = returns.to(self.device)
 
                     if epoch == 0 or True:
-                        advantages = self.calculate_advantages_v2(rewards, values, next_values, terminated, truncated, self.gamma, 0.95)
+                        advantages = self.calculate_advantages(rewards, values, next_values, terminated, truncated, self.gamma, 0.95)
                         if epoch == 0:
                             returns = advantages.cpu() + values.cpu()
                         advantages = (advantages - advantages.mean())# / (advantages.std() + 1e-8)
@@ -723,50 +723,8 @@ class PPO(nn.Module):
             for id in self.memory.keys():
                 self.memory[id].state = self.memory[id].state * old_obs_max / self.obs_max
                 self.memory[id].next_state = self.memory[id].next_state * old_obs_max / self.obs_max
-
+    
     def calculate_returns(self, rewards, values, next_values, terminated, truncated, discount_factor):
-        returns = []
-        for traj_rewards, traj_values, traj_nvalues, traj_term, traj_trunc in zip(rewards, values, next_values, terminated, truncated):
-            R = 0
-            if traj_term[-1] == False:
-                R = traj_nvalues[-1]
-            traj_returns = []
-            for reward, value, nvalue, term, trunc in zip(reversed(traj_rewards), reversed(traj_values), reversed(traj_nvalues), reversed(traj_term), reversed(traj_trunc)):
-                if trunc:
-                    R = nvalue
-                elif term:
-                    R = 0
-                R = reward + R * discount_factor
-                traj_returns.insert(0, R)
-            returns.append(traj_returns)
-        returns = torch.tensor(returns)
-        return returns
-    
-    def calculate_advantages(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay):
-        advantages = []
-        for traj_rewards, traj_values, traj_nvalues, traj_term, traj_trunc in zip(rewards, values, next_values, terminated, truncated):
-            adv = 0
-            if traj_term[-1] == False:
-                adv = traj_nvalues[-1] - traj_values[-1]
-            tarj_advantages = []
-            for reward, value, nvalue, term, trunc in zip(reversed(traj_rewards), reversed(traj_values), reversed(traj_nvalues), reversed(traj_term), reversed(traj_trunc)):
-                if trunc:
-                    adv = 0
-                    delta = reward + discount_factor * nvalue - value
-                elif term:
-                    adv = 0
-                    delta = reward - value
-                else:
-                    delta = reward + discount_factor * nvalue - value
-                adv = delta + discount_factor * trace_decay * adv
-
-                tarj_advantages.insert(0, adv)
-            advantages.append(tarj_advantages)
-
-        advantages = torch.tensor(advantages)
-        return advantages
-    
-    def calculate_returns_v2(self, rewards, values, next_values, terminated, truncated, discount_factor):
         dones = torch.logical_or(terminated, truncated)
         R = next_values[:, -1] * (~terminated[:, -1]).int()
         returns = torch.zeros(rewards.shape)
@@ -776,7 +734,7 @@ class PPO(nn.Module):
             returns[:, t] = R
         return returns
     
-    def calculate_advantages_v2(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay):
+    def calculate_advantages(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay):
         advantages = torch.zeros(rewards.shape)
         dones = torch.logical_or(terminated, truncated)
         adv = (next_values[:, -1] - values[: , -1]) * (~terminated[:, -1]).int()
