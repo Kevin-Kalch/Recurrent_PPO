@@ -499,7 +499,7 @@ class PPO(nn.Module):
         h = hidden_states[:, 0, :].to(self.device)
         with torch.no_grad():
              for i in range(states.size(1)):
-                probs, value, h = self.model(states[:, i, :].to(self.device), last_actions[:, i, :].to(self.device), h)
+                probs, value, _, _, h = self.model(states[:, i, :].to(self.device), last_actions[:, i, :].to(self.device), h)
                 orig_probs[:, i, :] = probs
 
 
@@ -649,7 +649,6 @@ class PPO(nn.Module):
                     total_loss.backward()
                     total_loss = 0
                     total_norm = 0
-                    total_loss.backward()
                     for p in self.model.parameters():
                         if p.grad is not None:
                             param_norm = p.grad.data.norm(2)

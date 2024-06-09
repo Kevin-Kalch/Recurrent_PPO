@@ -32,7 +32,7 @@ def main():
     envs = create_envs(num=num_envs)
     obs_dim = envs.observation_space.shape[1]
     action_num = envs.action_space[0].n
-    writer = SummaryWriter(comment="GePPo_Impala_target")
+    writer = SummaryWriter(comment="GePPo_Impala_target_intrinsic")
     #writer = None
     agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
     # Es braucht viele Episoden is die Policy stabil ist
