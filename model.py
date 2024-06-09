@@ -495,6 +495,13 @@ class PPO(nn.Module):
         self.model = self.model.to(self.device)
 
         states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask = self.prepareData()
+        orig_probs = torch.zeros(old_probs.shape, device=self.device)
+        h = hidden_states[:, 0, :].to(self.device)
+        with torch.no_grad():
+             for i in range(states.size(1)):
+                probs, value, h = self.model(states[:, i, :].to(self.device), last_actions[:, i, :].to(self.device), h)
+                orig_probs[:, i, :] = probs
+
 
         states = states.to(self.device)
         hidden_states = hidden_states.to(self.device)
@@ -526,6 +533,7 @@ class PPO(nn.Module):
                 if epoch == 0 or epoch == 10 or continue_training == False or True:
                     values = []
                     next_values = []
+                    ratios = []
                     for i in range(states.size(1)): # seq length, :]
                         probs, value, _, _, h = self.model(states[:, i, :].to(self.device), last_actions[:, i, :].to(self.device), hidden_states[:, i, :].to(self.device))
                         next_action = torch.zeros((states[:, i, :].size(0), self.num_actions), dtype=torch.float32, device=self.device)
@@ -534,6 +542,13 @@ class PPO(nn.Module):
                         
                         values.append(value.squeeze())
                         next_values.append(next_value.squeeze())
+
+                        log_probs = torch.log(torch.gather(probs, -1, actions[:, i][..., None].to(self.device))).squeeze()
+                        b_old_probs = old_probs[:, i, :]
+                        b_old_log_probs = torch.log(torch.gather(b_old_probs, -1, actions[:, i][..., None])).squeeze().to(self.device)
+    
+                        ratio = torch.exp(log_probs - b_old_log_probs)
+                        ratios.append(ratio.squeeze())
 
                         if i != (states.size(1)-1):
                             done_mask = (dones[:, i] == True).to(self.device)
@@ -544,19 +559,19 @@ class PPO(nn.Module):
 
                     values = torch.stack(values, dim=1)
                     next_values = torch.stack(next_values, dim=1)
+                    ratios = torch.stack(ratios, dim=1)
+
                     terminated = terminated.to(self.device)
                     truncated = truncated.to(self.device)
-                    #if epoch == 0:
-                    #    returns = self.calculate_returns_v2(rewards, values, next_values, terminated, truncated, self.gamma)
+                    if epoch == 0:
+                        #returns = self.calculate_returns_v2(rewards, values, next_values, terminated, truncated, self.gamma, ratios)
+                        advantages, returns = self.calc_adv_val(rewards, values, next_values, terminated, truncated, self.gamma, 0.95, ratios)
                     #returns = returns.to(self.device)
 
-                    if epoch == 0 or True:
-                        advantages = self.calculate_advantages_v2(rewards, values, next_values, terminated, truncated, self.gamma, 0.95)
-                        if epoch == 0:
-                            returns = advantages.cpu() + values.cpu()
-                        advantages = (advantages - advantages.mean())# / (advantages.std() + 1e-8)
+                        #advantages = self.calculate_advantages_v2(rewards, values, next_values, terminated, truncated, self.gamma, 0.95, ratios)
+                        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                         advantages = torch.clamp(advantages, torch.quantile(advantages, 0.05), torch.quantile(advantages, 0.95))
-                    advantages = advantages
+                        advantages = advantages
                     
                     returns = returns.to(self.device)
                     advantages = advantages.to(self.device)
@@ -583,9 +598,14 @@ class PPO(nn.Module):
                 b_old_log_probs = torch.log(torch.gather(b_old_probs, -1, actions[:, i][..., None])).squeeze().to(self.device)
                 seq_old_log_probs[:, i%batch_seq_length] = b_old_log_probs
 
+                b_orig_probs = orig_probs[:, i, :]
+                b_orig_log_probs = torch.log(torch.gather(b_orig_probs, -1, actions[:, i][..., None])).squeeze().to(self.device)
+                seq_old_log_probs[:, i%batch_seq_length] = b_orig_log_probs
+
                 ratios = torch.exp(log_probs - b_old_log_probs)
+                orig_policy_ratios = torch.exp(b_orig_log_probs - b_old_log_probs)
                 surr1 = ratios * advantages[:, i].to(self.device)
-                surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages[:, i].to(self.device)
+                surr2 = torch.clamp(ratios, orig_policy_ratios-self.eps_clip, orig_policy_ratios+self.eps_clip) * advantages[:, i].to(self.device)
                 clip_fraction = torch.mean((torch.abs(ratios - 1) > self.eps_clip).float()).item()
                 clip_fractions.append(clip_fraction)
                 
@@ -613,22 +633,23 @@ class PPO(nn.Module):
                 
                 if (i+1)%batch_seq_length == 0:
                     # Early stopping
-                    with torch.no_grad():
-                        log_ratio = seq_log_probs.flatten() - seq_old_log_probs.flatten()
-                        log_ratio = log_ratio[(seq_mask == 1).flatten()]
-                        approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
-                        kl_divs.append(approx_kl_div)
-                        if abs(approx_kl_div) > 1.5 * 0.05:
-                            if old_model is not None:
-                                self.model.load_state_dict(old_model)
-                            continue_training = False
-                            print(f"Early stopping due to reaching max kl: {approx_kl_div:.2f}, aprox kl: {approx_kl_div:.2f}")
-                            break
+                    # with torch.no_grad():
+                    #     log_ratio = seq_log_probs.flatten() - seq_old_log_probs.flatten()
+                    #     log_ratio = log_ratio[(seq_mask == 1).flatten()]
+                    #     approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
+                    #     kl_divs.append(approx_kl_div)
+                    #     if abs(approx_kl_div) > 1.5 * 0.05:
+                    #         if old_model is not None:
+                    #             self.model.load_state_dict(old_model)
+                    #         continue_training = False
+                    #         print(f"Early stopping due to reaching max kl: {approx_kl_div:.2f}, aprox kl: {approx_kl_div:.2f}")
+                    #         break
 
                     #old_model = self.model.state_dict()
                     total_loss.backward()
                     total_loss = 0
                     total_norm = 0
+                    total_loss.backward()
                     for p in self.model.parameters():
                         if p.grad is not None:
                             param_norm = p.grad.data.norm(2)
@@ -640,9 +661,14 @@ class PPO(nn.Module):
                     torch.nn.utils.clip_grad.clip_grad_norm_(self.model.parameters(), 1.0)
                     self.optimizer.step()
                     self.optimizer.zero_grad()
+                    total_loss = 0
 
-        for i, key in enumerate(sorted(self.memory.keys())):
-            self.memory[key].hidden_state = hidden_states[i, :len(self.memory[i].hidden_state)].cpu()
+        # for i, key in enumerate(sorted(self.memory.keys())):
+        #     self.memory[key].hidden_state = hidden_states[i, :len(self.memory[i].hidden_state)].cpu()
+
+        # Quick and dirty for GePPO
+        for i in range(16):
+            self.memory[i].hidden_state = hidden_states[i, :len(self.memory[i].hidden_state)].cpu()
 
         self.update_obs_max()
                 
@@ -742,14 +768,61 @@ class PPO(nn.Module):
         returns = torch.tensor(returns)
         return returns
     
-    def calculate_advantages(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay):
+    def calculate_returns_v2(self, rewards, values, next_values, terminated, truncated, discount_factor, ratios):
+        dones = torch.logical_or(terminated, truncated)
+        R = next_values[:, -1] * (~terminated[:, -1]).int()
+        returns = torch.zeros(rewards.shape)
+
+        ratios = torch.clamp(ratios, max=1)
+
+        for t in reversed(range(rewards.size(1))):
+            R = rewards[:, t] + R * discount_factor * (~dones[:, t]).int() + next_values[:, t] * truncated[:, t].int()
+            returns[:, t] = R
+        return returns
+    
+    def calculate_advantages_v2(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay, ratios):
+        advantages = torch.zeros(rewards.shape)
+        dones = torch.logical_or(terminated, truncated)
+        adv = (next_values[:, -1] - values[: , -1]) * (~terminated[:, -1]).int()
+
+        ratios = torch.clamp(ratios, max=1)
+
+        for t in reversed(range(rewards.size(1))):
+            adv = adv * (~dones[:, t]).int()
+            delta = rewards[:, t] + (discount_factor * next_values[: ,t] * (~terminated[:, t]).int()) - values[:, t]
+            adv = delta + discount_factor * trace_decay * adv
+            advantages[:, t] = adv
+            adv = adv * ratios[:, t]
+
+        return advantages
+    
+    def calc_adv_val(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay, ratios):
+        advantages = torch.zeros(rewards.shape, device=self.device)
+        returns = torch.zeros(rewards.shape, device=self.device)
+        dones = torch.logical_or(terminated, truncated)
+        R = next_values[:, -1] * (~terminated[:, -1]).int()
+
+        ratios = torch.clamp(ratios, max=1)
+
+        for i in reversed(range(rewards.size(1))):
+            R = (next_values[:, i] * truncated[:, i].int()) + R * terminated[:, i].int()
+
+            delta_s = ratios[:, i] * (rewards[:, i] + discount_factor * next_values[:, i]-values[:, i]) * (~terminated[:, i]).int()
+            adv = ratios[:, i] * (rewards[:, i] + discount_factor * R - values[:, i])
+            advantages[:, i] = adv
+            returns[:, i] = values[:, i] + delta_s + discount_factor * ratios[:, i] * (R-next_values[:, i])
+            R = returns[:, i]
+
+        return advantages, returns
+    
+    def calculate_advantages(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay, ratios):
         advantages = []
-        for traj_rewards, traj_values, traj_nvalues, traj_term, traj_trunc in zip(rewards, values, next_values, terminated, truncated):
+        for traj_rewards, traj_values, traj_nvalues, traj_term, traj_trunc, traj_ratios in zip(rewards, values, next_values, terminated, truncated, ratios):
             adv = 0
             if traj_term[-1] == False:
                 adv = traj_nvalues[-1] - traj_values[-1]
             tarj_advantages = []
-            for reward, value, nvalue, term, trunc in zip(reversed(traj_rewards), reversed(traj_values), reversed(traj_nvalues), reversed(traj_term), reversed(traj_trunc)):
+            for reward, value, nvalue, term, trunc, rat in zip(reversed(traj_rewards), reversed(traj_values), reversed(traj_nvalues), reversed(traj_term), reversed(traj_trunc), reversed(traj_ratios)):
                 if trunc:
                     adv = 0
                     delta = reward + discount_factor * nvalue - value
@@ -759,8 +832,8 @@ class PPO(nn.Module):
                 else:
                     delta = reward + discount_factor * nvalue - value
                 adv = delta + discount_factor * trace_decay * adv
-
                 tarj_advantages.insert(0, adv)
+                adv = adv * min([1, rat])
             advantages.append(tarj_advantages)
 
         advantages = torch.tensor(advantages)

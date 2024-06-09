@@ -32,7 +32,7 @@ def main():
     envs = create_envs(num=num_envs)
     obs_dim = envs.observation_space.shape[1]
     action_num = envs.action_space[0].n
-    writer = SummaryWriter(comment="intrinsic_loss_low_dont_std")
+    writer = SummaryWriter(comment="GePPo_Impala_target")
     #writer = None
     agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
     # Es braucht viele Episoden is die Policy stabil ist
@@ -113,9 +113,13 @@ def main():
                     h_state = agent.memory[i].hidden_state[steps_per_env-1].unsqueeze(0).to(agent.device)
                     _, _, _, _, new_h = agent.model(state, None, h_state)
                     hidden_states[i] = new_h.detach().cpu()
-            agent.memory = {}
-        else:
-            agent.memory = {}
+        M = 4
+        for mem_key in list(agent.memory.keys()):
+            new_key = mem_key + num_envs
+            if new_key < num_envs * M:
+                agent.memory[new_key] = agent.memory.pop(mem_key)
+            else:
+                agent.memory.pop(mem_key)
 
         if epoch < 100:
             mean_return = np.mean(mean_returns) + 1e-8
