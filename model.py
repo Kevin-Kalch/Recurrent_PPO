@@ -564,11 +564,11 @@ class PPO(nn.Module):
                     terminated = terminated.to(self.device)
                     truncated = truncated.to(self.device)
                     if epoch == 0:
-                        #returns = self.calculate_returns_v2(rewards, values, next_values, terminated, truncated, self.gamma, ratios)
-                        advantages, returns = self.calc_adv_val(rewards, values, next_values, terminated, truncated, self.gamma, 0.95, ratios)
+                        returns = self.calculate_returns_v2(rewards, values, next_values, terminated, truncated, self.gamma, ratios)
+                        #advantages, returns = self.calc_adv_val(rewards, values, next_values, terminated, truncated, self.gamma, 0.95, ratios)
                     #returns = returns.to(self.device)
 
-                        #advantages = self.calculate_advantages_v2(rewards, values, next_values, terminated, truncated, self.gamma, 0.95, ratios)
+                        advantages = self.calculate_advantages_v2(rewards, values, next_values, terminated, truncated, self.gamma, 0.95, ratios)
                         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                         advantages = torch.clamp(advantages, torch.quantile(advantages, 0.05), torch.quantile(advantages, 0.95))
                         advantages = advantages
@@ -791,7 +791,7 @@ class PPO(nn.Module):
             delta = rewards[:, t] + (discount_factor * next_values[: ,t] * (~terminated[:, t]).int()) - values[:, t]
             adv = delta + discount_factor * trace_decay * adv
             advantages[:, t] = adv
-            adv = adv * ratios[:, t]
+            #adv = adv * ratios[:, t]
 
         return advantages
     
@@ -837,30 +837,6 @@ class PPO(nn.Module):
 
         advantages = torch.tensor(advantages)
         return advantages
-    
-    def calculate_returns_v2(self, rewards, values, next_values, terminated, truncated, discount_factor):
-        dones = torch.logical_or(terminated, truncated)
-        R = next_values[:, -1] * (~terminated[:, -1]).int()
-        returns = torch.zeros(rewards.shape)
-
-        for t in reversed(range(rewards.size(1))):
-            R = rewards[:, t] + R * discount_factor * (~dones[:, t]).int() + next_values[:, t] * truncated[:, t].int()
-            returns[:, t] = R
-        return returns
-    
-    def calculate_advantages_v2(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay):
-        advantages = torch.zeros(rewards.shape)
-        dones = torch.logical_or(terminated, truncated)
-        adv = (next_values[:, -1] - values[: , -1]) * (~terminated[:, -1]).int()
-
-        for t in reversed(range(rewards.size(1))):
-            adv = adv * (~dones[:, t]).int()
-            delta = rewards[:, t] + (discount_factor * next_values[: ,t] * (~terminated[:, t]).int()) - values[:, t]
-            adv = delta + discount_factor * trace_decay * adv
-            advantages[:, t] = adv
-
-        return advantages
-        
     
 def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
     assert y_true.ndim == 1 and y_pred.ndim == 1
