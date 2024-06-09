@@ -14,7 +14,7 @@ def create_envs(num=4):
     envs = []
     for i in range(num):
         def gen():
-            env = LastAction(VelHidden(OutsideViewport(gymnasium.make('LunarLander-v2'))))
+            env = LastAction(VelHidden(gymnasium.make('LunarLander-v2')))
             #env = LastAction(gymnasium.make('FlappyBird-v0', use_lidar=True))
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
@@ -27,20 +27,23 @@ profiler = cProfile.Profile()
 def main():
     num_envs = 16
     steps_per_env = 128
-    num_epochs = 100000
+    num_epochs = 1000
 
     envs = create_envs(num=num_envs)
     obs_dim = envs.observation_space.shape[1]
     action_num = envs.action_space[0].n
-    writer = SummaryWriter(comment="gae")
+    writer = SummaryWriter(comment="intrinsic_loss_low_dont_std")
     #writer = None
     agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
     # Es braucht viele Episoden is die Policy stabil ist
 
     rewards = deque(maxlen=32)
-    rewards_per_env = {i: [] for i in range(num_envs)}
-    vars = deque(maxlen=4096)
-    mean_vars = 1
+    rewards_per_env = {i: [] for i in range(num_envs)}#
+    intrinsic_rewards_per_env = {i: [] for i in range(num_envs)}
+    mean_returns = deque(maxlen=4096)
+    mean_return = 1
+    std_intrinsic_returns = deque(maxlen=4096)
+    std_intrinsic_return = 1
     rewards.appendleft(0)
 
     epoch = 0
@@ -48,6 +51,8 @@ def main():
     hidden_states = torch.zeros((num_envs, 64)).to(agent.device)
     global_step = 0
     while epoch < num_epochs:
+        # if epoch == 5:
+        #     profiler.enable()
         agent.model.sample_noise()
         agent.model.eval()
         for step in range(steps_per_env):
@@ -55,18 +60,25 @@ def main():
             action, action_prop, new_h = agent.select_action(states, None, hidden_states, eval=False)
             next_state, reward, terminated, truncated, info = envs.step(action)
 
-            agent_reward = reward
-            agent_reward = agent_reward / mean_vars
+            # Intrinsic rewards
+            intrinsic_reward, _ = agent.get_intrinsic_reward(next_state, None, new_h)
+            if writer is not None:
+                writer.add_scalar("charts/intrinsic_reward", (intrinsic_reward / std_intrinsic_return).mean() , global_step)
+
+            agent_reward = reward 
+            agent_reward = (agent_reward / mean_return) + intrinsic_reward
             
             for i in range(num_envs):
                 rewards_per_env[i].append(reward[i])
+                intrinsic_rewards_per_env[i].append(intrinsic_reward[i])
                 agent.record_obs(states[i], hidden_states[i], action[i], None, agent_reward[i], next_state[i], terminated[i], truncated[i], action_prop[i], i, step)
                 if info != {}:
                     if terminated[i] or truncated[i]: 
                         agent.memory[i].next_state[step] = torch.FloatTensor(info["final_observation"][i]) / agent.obs_max
                         rewards.appendleft(info["final_info"][i]["episode"]["r"])
-                        writer.add_scalar("charts/episodic_return", info["final_info"][i]["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["final_info"][i]["episode"]["l"], global_step)
+                        if writer is not None:
+                            writer.add_scalar("charts/episodic_return", info["final_info"][i]["episode"]["r"], global_step)
+                            writer.add_scalar("charts/episodic_length", info["final_info"][i]["episode"]["l"], global_step)
                         new_h[i] = torch.zeros((1, 64)).to(agent.device)
 
                         # Calculate return
@@ -75,8 +87,17 @@ def main():
                         for t in reversed(range(len(rewards_per_env[i]))):
                             R = rewards_per_env[i][t] + agent.gamma * R
                             returns.insert(0, R)
-                        vars.append(np.mean(np.abs(returns)))
+                        mean_returns.append(np.mean(np.abs(returns)))
+
+                        R = 0
+                        returns = []
+                        for t in reversed(range(len(intrinsic_rewards_per_env[i]))):
+                            R = intrinsic_rewards_per_env[i][t] + agent.gamma * R
+                            returns.insert(0, R)
+                        std_intrinsic_returns.append(np.std(returns))
+
                         rewards_per_env[i] = []
+                        intrinsic_rewards_per_env[i] = []
 
             states = next_state
             hidden_states = new_h
@@ -90,15 +111,16 @@ def main():
                 if not agent.memory[i].terminated[steps_per_env-1] and not agent.memory[i].truncated[steps_per_env-1]:
                     state = agent.memory[i].state[steps_per_env-1].unsqueeze(0).to(agent.device)
                     h_state = agent.memory[i].hidden_state[steps_per_env-1].unsqueeze(0).to(agent.device)
-                    _, _, new_h = agent.model(state, None, h_state)
+                    _, _, _, _, new_h = agent.model(state, None, h_state)
                     hidden_states[i] = new_h.detach().cpu()
             agent.memory = {}
         else:
             agent.memory = {}
 
         if epoch < 100:
-            mean_vars = np.mean(vars) + 1e-8
-        print(np.mean(mean_vars))
+            mean_return = np.mean(mean_returns) + 1e-8
+            std_intrinsic_return = np.mean(std_intrinsic_returns) + 1e-8
+        print(np.mean(mean_return))
         
         epoch += 1
 
@@ -119,7 +141,7 @@ def main():
         if writer is not None:
             writer.add_scalar("Avg. train Reward", sum(rewards)/len(rewards), epoch)
             writer.add_scalar("Test Reward", ep_reward, epoch)
-            writer.add_scalar("Mean Var", mean_vars, epoch)
+            writer.add_scalar("Mean Var", mean_return, epoch)
         
         if epoch % 100 == 0:
             agent.save_model("LunarLander-agent_" + str(epoch))
@@ -221,7 +243,7 @@ class LastAction(gymnasium.Wrapper):
 
 if __name__ == '__main__':
     #torch.autograd.set_detect_anomaly(True)
-    torch.set_num_threads(24)
+    torch.set_num_threads(64)
     torch.set_float32_matmul_precision('high')
     torch.set_printoptions(sci_mode=False)
     torch.backends.cudnn.benchmark = True

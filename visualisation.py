@@ -10,7 +10,7 @@ def main():
     obs_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
     agent = PPO(obs_dim, action_num, 1)
-    agent.load_model("LunarLander-agent_800")
+    agent.load_model("LunarLander-agent_1000")
     agent.model.remove_noise()
     while True:
         state, _ = env.reset()
