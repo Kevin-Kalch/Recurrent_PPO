@@ -2,7 +2,6 @@ import time
 import gymnasium
 from model import PPO
 import numpy as np
-from gymnasium.wrappers import TimeAwareObservation
 
 def main():
     #env = gymnasium.make('ALE/SpaceInvaders-v5', obs_type="ram", render_mode="human")
@@ -18,7 +17,7 @@ def main():
         ep_reward = 0
         done=False
         h = None
-        while done == False:
+        while done is False:
             action, _, h = agent.select_action(state, None, h, eval=True)
             next_state, reward, done, terminated, _ = env.step(action)
             ep_reward += reward

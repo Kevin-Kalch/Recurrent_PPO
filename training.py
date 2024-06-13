@@ -1,13 +1,10 @@
 import cProfile
 from collections import deque
-import pstats
 import gymnasium
 import torch
 from model import PPO
 import numpy as np
 torch.manual_seed(4020)
-from gymnasium.wrappers import TimeAwareObservation
-from torch.utils.tensorboard import SummaryWriter
 #import flappy_bird_gymnasium
 
 def create_envs(num=4):
@@ -32,18 +29,15 @@ def main():
     envs = create_envs(num=num_envs)
     obs_dim = envs.observation_space.shape[1]
     action_num = envs.action_space[0].n
-    writer = SummaryWriter(comment="intrinsic_loss_low_dont_std")
-    #writer = None
+    #writer = SummaryWriter(comment="mc")
+    writer = None
     agent = PPO(obs_dim, action_num, steps_per_env, writer=writer)
     # Es braucht viele Episoden is die Policy stabil ist
 
     rewards = deque(maxlen=32)
     rewards_per_env = {i: [] for i in range(num_envs)}#
-    intrinsic_rewards_per_env = {i: [] for i in range(num_envs)}
     mean_returns = deque(maxlen=4096)
     mean_return = 1
-    std_intrinsic_returns = deque(maxlen=4096)
-    std_intrinsic_return = 1
     rewards.appendleft(0)
 
     epoch = 0
@@ -63,14 +57,13 @@ def main():
             # Intrinsic rewards
             intrinsic_reward, _ = agent.get_intrinsic_reward(next_state, None, new_h)
             if writer is not None:
-                writer.add_scalar("charts/intrinsic_reward", (intrinsic_reward / std_intrinsic_return).mean() , global_step)
+                writer.add_scalar("charts/intrinsic_reward", intrinsic_reward.mean() , global_step)
 
             agent_reward = reward 
             agent_reward = (agent_reward / mean_return) + intrinsic_reward
             
             for i in range(num_envs):
                 rewards_per_env[i].append(reward[i])
-                intrinsic_rewards_per_env[i].append(intrinsic_reward[i])
                 agent.record_obs(states[i], hidden_states[i], action[i], None, agent_reward[i], next_state[i], terminated[i], truncated[i], action_prop[i], i, step)
                 if info != {}:
                     if terminated[i] or truncated[i]: 
@@ -89,15 +82,7 @@ def main():
                             returns.insert(0, R)
                         mean_returns.append(np.mean(np.abs(returns)))
 
-                        R = 0
-                        returns = []
-                        for t in reversed(range(len(intrinsic_rewards_per_env[i]))):
-                            R = intrinsic_rewards_per_env[i][t] + agent.gamma * R
-                            returns.insert(0, R)
-                        std_intrinsic_returns.append(np.std(returns))
-
                         rewards_per_env[i] = []
-                        intrinsic_rewards_per_env[i] = []
 
             states = next_state
             hidden_states = new_h
@@ -119,7 +104,6 @@ def main():
 
         if epoch < 100:
             mean_return = np.mean(mean_returns) + 1e-8
-            std_intrinsic_return = np.mean(std_intrinsic_returns) + 1e-8
         print(np.mean(mean_return))
         
         epoch += 1
@@ -130,7 +114,7 @@ def main():
         done=False
         hidden_state = torch.zeros((1, 64))
         agent.model.remove_noise()
-        while done == False:
+        while done is False:
              action, action_prop, hidden_state = agent.select_action(state, None, hidden_state, eval=True)
              state, reward, truncated, terminated, info = test_env.step(action)
              ep_reward += reward
@@ -145,35 +129,6 @@ def main():
         
         if epoch % 100 == 0:
             agent.save_model("LunarLander-agent_" + str(epoch))
-
-
-
-class RunningMeanStd(object):
-    def __init__(self, epsilon=1e-4, shape=()):
-        self.mean = np.zeros(shape, 'float64')
-        self.var = np.ones(shape, 'float64')
-        self.count = epsilon
-
-    def update(self, x):
-        batch_mean = np.mean(x, axis=0)
-        batch_var = np.var(x, axis=0)
-        self.update_from_moments(batch_mean, batch_var, len(x))
-
-    def update_from_moments(self, batch_mean, batch_var, batch_count):        
-        delta = batch_mean - self.mean
-        tot_count = self.count + batch_count
-
-        new_mean = self.mean + delta * batch_count / tot_count
-        m_a = self.var * self.count
-        m_b = batch_var * batch_count
-        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / tot_count
-        new_var = M2 / (tot_count - 1)
-        new_count = tot_count
-
-        self.mean = new_mean
-        self.var = new_var
-        self.count = new_count
-
 
 class EpisodicLifeEnv(gymnasium.Wrapper[np.ndarray, int, np.ndarray, int]):
     """
@@ -243,7 +198,7 @@ class LastAction(gymnasium.Wrapper):
 
 if __name__ == '__main__':
     #torch.autograd.set_detect_anomaly(True)
-    torch.set_num_threads(64)
+    torch.set_num_threads(24)
     torch.set_float32_matmul_precision('high')
     torch.set_printoptions(sci_mode=False)
     torch.backends.cudnn.benchmark = True
