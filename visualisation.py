@@ -2,57 +2,36 @@ import time
 import gymnasium
 from model import PPO
 import numpy as np
+import torch
+from main import config
+from lunar_lander_helpers import VelHidden, LastAction
 
 def main():
-    #env = gymnasium.make('ALE/SpaceInvaders-v5', obs_type="ram", render_mode="human")
     env = LastAction(VelHidden(gymnasium.make('LunarLander-v2', render_mode="human")))
     obs_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
-    agent = PPO(obs_dim, action_num, 1)
-    agent.load_model("LunarLander-agent_1000")
+    agent = PPO(obs_dim, action_num, config, None)
+    agent.load_model("Models/LunarLander-v2-New training, old params and model, more params adjusted, try tanh, fixed es-agent_300")
     agent.model.remove_noise()
+    agent.model.eval()
+
     while True:
-        state, _ = env.reset()
+        env_state, _ = env.reset()
         env.render()
         ep_reward = 0
         done=False
-        h = None
+        state = np.array([env_state])
+        h = torch.zeros((1, agent.config["hidden_size"])).to(agent.device)
         while done is False:
             action, _, h = agent.select_action(state, None, h, eval=True)
-            next_state, reward, done, terminated, _ = env.step(action)
+            next_state, reward, done, terminated, _ = env.step(action[0])
             ep_reward += reward
             if done or terminated:
                 h = None
                 break
-            state = next_state
+            state[0] = next_state
             env.render()
             time.sleep(0.001)
-
-class VelHidden(gymnasium.ObservationWrapper):
-    def observation(self, obs):
-        obs[[2,3]] = 0.0
-        return obs
-
-class LastAction(gymnasium.Wrapper):
-    def __init__(self, env: gymnasium.Env):
-        super().__init__(env)
-        self.observation_space = gymnasium.spaces.Box(
-            low=np.append(self.observation_space.low, np.zeros(self.action_space.n)), 
-            high=np.append(self.observation_space.high, np.ones(self.action_space.n)), 
-            shape=(env.observation_space.shape[0] + self.action_space.n,), 
-            dtype=np.float32)
-
-    def step(self, action):
-        next_state, reward, terminated, truncated, info = super().step(action)
-        actions = np.zeros(self.action_space.n)
-        actions[action] = 1
-        next_state = np.append(next_state, actions)
-        return next_state, reward, terminated, truncated, info
-    
-    def reset(self, seed=None, options=None):
-        state, info = super().reset(seed=seed, options=options)
-        state = np.append(state, np.zeros(self.action_space.n))
-        return state, info
 
 if __name__ == '__main__':
     main()
