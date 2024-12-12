@@ -25,8 +25,8 @@ config = {
     "experiment": "LunarLander-v2",
     "comment": "",
     # Environment
-    "num_envs": 16,
-    "num_epochs": 1000,
+    "num_envs": 4,
+    "num_epochs": 10000,
     "steps_per_env": 128,
     "use_intrinsic_reward": False,
     "model_saving_interval": 25,
@@ -40,11 +40,11 @@ config = {
     "use_memory": True,
     # Training
     "start_epoch": 5,
-    "eps_clip": 0.2,
+    "eps_clip": 0.1,
     "lr": 3e-4,
     "gamma": 0.99,
     "batches_per_sequence": 4,
-    "ppo_epochs": 10,
+    "ppo_epochs": 3,
     "recalculate_returns": False,
     "recalculate_advantages": True,
     "policy_weight": 1.0,
@@ -103,9 +103,9 @@ if __name__ == "__main__":
     config["comment"] = args.comment + " " + str(args.index)
     set_pytorch_env()
     set_seed(4020)
-    config["comment"] = "Baseline without rollback, Truly v3 20 slope 0.05 KL, without rnd, low gamma, noisy, trunc penalty"
+    config["comment"] = "GePPO Test, v-trace, geppo adv, mc rets"
     writer = SummaryWriter(
-        "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
+       "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
     )
     writer.add_text("config", json.dumps(config, indent=4))
     writer.add_text("comment", config["comment"])

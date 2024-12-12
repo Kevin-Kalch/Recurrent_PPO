@@ -62,30 +62,30 @@ class ACNetwork(nn.Module):
         if isinstance(num_in, int): # Linear input
             self.body = nn.Sequential(
                 self.init_weights(nn.Linear(num_in, 256)),
-                nn.LeakyReLU(),
+                nn.Tanh(),
                 self.init_weights(nn.Linear(256, 256)),
-                nn.LeakyReLU(),
+                nn.Tanh(),
                 self.init_weights(nn.Linear(256, 128)),
-                nn.LeakyReLU(),
+                nn.Tanh(),
             )
         else:
             self.body = nn.Sequential(
                 self.init_weights(nn.Conv2d(num_in[0], 32, 4, stride=2)),
-                nn.LeakyReLU(),
+                nn.Tanh(),
                 self.init_weights(nn.Conv2d(32, 64, 4, stride=2)),
-                nn.LeakyReLU(),
+                nn.Tanh(),
                 self.init_weights(nn.Conv2d(64, 64, 3, stride=2)),
-                nn.LeakyReLU(),
+                nn.Tanh(),
                 nn.Flatten(start_dim=1),
                 self.init_weights(nn.Linear(39168, 512)),
-                nn.LeakyReLU(),
+                nn.Tanh(),
             )          
 
         self.core = nn.Sequential(
             self.init_weights(nn.Linear(128+self.config["hidden_size"]+self.num_actions, 256)), 
-            nn.LeakyReLU(),
+            nn.Tanh(),
             self.init_weights(nn.Linear(256, 256)),
-            nn.LeakyReLU(),
+            nn.Tanh(),
         )
         self.rnn = nn.GRUCell(256, self.config["hidden_size"])
         for name, param in self.rnn.named_parameters():
@@ -97,13 +97,13 @@ class ACNetwork(nn.Module):
         self.policy = nn.Sequential(
             self.init_weights(nn.Linear(256, 64)),
             nn.Tanh(),
-            self.init_weights(NoisyLinear(64, num_actions), std=0.01),
+            self.init_weights(NoisyLinear(64, num_actions), std=0.1),
             nn.Softmax(dim=1)
         )
 
         self.value = nn.Sequential(
             self.init_weights(nn.Linear(256, 64)),
-            nn.LeakyReLU(),
+            nn.Tanh(),
             self.init_weights(nn.Linear(64, 1), std=1),
         )
 
@@ -361,7 +361,7 @@ class PPO(nn.Module):
         self.model = self.model.to(self.device)
 
         states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required = self.prepareData()
-        
+        current_game_policy_probs = torch.zeros_like(old_probs)
         batch_seq_length = states.size(1) // self.config["batches_per_sequence"]
 
         policy_losses = []
@@ -377,7 +377,7 @@ class PPO(nn.Module):
         old_model = None
         for epoch in range(self.config["ppo_epochs"] + 1):
             h = hidden_states[:, 0, :].to(self.device)
-
+            active_policy_probs = torch.zeros_like(old_probs)
             with torch.no_grad():
                 if (
                     epoch == 0
@@ -394,6 +394,9 @@ class PPO(nn.Module):
                         last_action = last_actions[:, i, :].to(self.device)
 
                         probs, value, _, _, h = self.model(state, last_action, h)
+                        if epoch == 0:
+                            current_game_policy_probs[:, i, :] = probs.cpu()
+                        active_policy_probs[:, i, :] = probs.cpu()
 
                         next_state = next_states[:, i, :].to(self.device)
 
@@ -421,17 +424,17 @@ class PPO(nn.Module):
                     values = torch.stack(values, dim=1).cpu()
                     next_values = torch.stack(next_values, dim=1).cpu()
 
-                    # if epoch == 0 or self.config["recalculate_returns"]:
-                    #         returns = self.calculate_returns(
-                    #             rewards,
-                    #             values,
-                    #             next_values,
-                    #             terminated,
-                    #             truncated,
-                    #             self.gamma,
-                    #         )
+                    if epoch == 0 or self.config["recalculate_returns"]:
+                            returns = self.calculate_returns(
+                                rewards,
+                                values,
+                                next_values,
+                                terminated,
+                                truncated,
+                                self.gamma,
+                            )
 
-                    if epoch == 0 or self.config["recalculate_advantages"]:
+                    if epoch == 0 or self.config["recalculate_advantages"] or continue_training == False or epoch == self.config["ppo_epochs"]:
                         advantages = self.calculate_advantages(
                             rewards,
                             values,
@@ -441,11 +444,90 @@ class PPO(nn.Module):
                             self.gamma,
                             0.95,
                         )
-                        if epoch == 0 or self.config["recalculate_returns"]:
-                            returns = advantages.cpu() + values.cpu()
-                        advantages = (advantages - advantages[loss_mask == 1].mean()) / (advantages[loss_mask == 1].std() + 1e-8)
-                        advantages = torch.clamp(advantages, torch.quantile(advantages[loss_mask.cpu()==1], 0.05), torch.quantile(advantages[loss_mask.cpu()==1], 0.95))
+                        adv, rets = self.calculate_vtrace_advantages(
+                            rewards,
+                            values,
+                            next_values,
+                            old_probs,
+                            active_policy_probs,
+                            actions,
+                            terminated,
+                            truncated,
+                            self.gamma,
+                            0.95,
+                            1.0,
+                        )
+                        # if epoch == 0 or self.config["recalculate_returns"]:
+                        #     returns = rets
+                        #     returns = adv + values
+                        # if epoch == 0 or self.config["recalculate_advantages"]:
+                        #     advantages = adv
+                        rets = self.calculate_v_trace_returns_impala(
+                            rewards,
+                            values,
+                            next_values,
+                            old_probs,
+                            active_policy_probs,
+                            actions,
+                            terminated,
+                            truncated,
+                            self.gamma,
+                            0.95,
+                            1.0,
+                        )
 
+                        geppo_advs = []
+                        geppo_returns = []
+                        for run_id in range(values.size(0)):
+                            gadv, gret = self.gae_vtrace(
+                                actions[run_id],
+                                next_values[run_id],
+                                rewards[run_id],
+                                terminated[run_id],
+                                truncated[run_id],
+                                active_policy_probs[run_id],
+                                old_probs[run_id],
+                                self.gamma,
+                                0.95,
+                                1.0,
+                                values[run_id],
+                            )
+                            geppo_advs.append(gadv)
+                            geppo_returns.append(gret)
+                        geppo_advs = torch.stack(geppo_advs, dim=0)
+                        geppo_returns = torch.stack(geppo_returns, dim=0)
+                        # if epoch == 0 or self.config["recalculate_returns"]:
+                        #     returns = returns
+                        if epoch == 0 or self.config["recalculate_advantages"]:
+                            advantages = geppo_advs
+                        if epoch == 0 or self.config["recalculate_returns"]:
+                             returns = rets
+                        # advantages = (advantages - advantages[loss_mask == 1].mean()) / (advantages[loss_mask == 1].std() + 1e-8)
+                        # advantages = torch.clamp(advantages, torch.quantile(advantages[loss_mask.cpu()==1], 0.05), torch.quantile(advantages[loss_mask.cpu()==1], 0.95))
+
+                         # Minibatch adv
+                        current_policy_log_prob = torch.log(
+                            torch.gather(current_game_policy_probs, -1, actions[..., None])
+                        ).squeeze()
+                        old_log_probs = torch.log(
+                            torch.gather(old_probs, -1, actions[..., None])
+                        ).squeeze()
+                        active_policy_log_prob = torch.log(
+                            torch.gather(active_policy_probs, -1, actions[..., None])
+                        ).squeeze()
+
+                        offpol_ratio = torch.exp(current_policy_log_prob - old_log_probs)
+                        ratios = torch.exp(active_policy_log_prob - old_log_probs)
+                        adv_mean = (advantages * offpol_ratio).mean() / offpol_ratio.mean()
+                        adv_std = (advantages * offpol_ratio).std() + 1e-8
+                        adv_mean = adv_mean.detach()
+                        adv_std = adv_std.detach()
+
+                        #adv_mean = advantages[loss_mask == 1].mean()
+                        #adv_std = advantages[loss_mask == 1].std() + 1e-8
+
+                        ratio_diff = torch.abs(ratios - offpol_ratio)
+                        tv = 0.5 * ratio_diff.pow(2).mean()
                     if continue_training == False or epoch == self.config["ppo_epochs"]:
                         break
 
@@ -468,6 +550,7 @@ class PPO(nn.Module):
                 if lm.sum() > 0:
                     state = states[:, i, :].to(self.device)
                     last_action = last_actions[:, i, :].to(self.device)
+                    current_policy_prob = current_game_policy_probs[:, i, :]
                     probs, pred_value, rnd_target_values, rnd_pred_values, h = self.model(state, last_action, h)
 
                     pred_value = pred_value.squeeze()
@@ -501,6 +584,15 @@ class PPO(nn.Module):
                     KL = (probs * (torch.log(probs) - torch.log(b_old_probs.to(self.device)))).sum(dim=-1)
                     surr1 = ratios * adv
                     surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * adv
+                    
+                    current_policy_log_prob = torch.log(
+                        torch.gather(current_policy_prob, -1, actions[:, i][..., None])
+                    ).squeeze().to(self.device)
+                    seq_old_log_probs[:, i % batch_seq_length] = current_policy_log_prob
+                    clip_mean = torch.exp(current_policy_log_prob - b_old_log_probs)
+
+                    surr1 = ratios * (adv - adv_mean) / (adv_std + 1e-8)
+                    surr2 = torch.clamp(ratios, clip_mean - self.eps_clip, clip_mean + self.eps_clip) * (adv - adv_mean) / (adv_std + 1e-8)
                     clip_fraction = (torch.abs(ratios[valid_point_mask] - 1) > self.eps_clip).float().mean()
                     clip_fractions.append(clip_fraction.item())
 
@@ -509,7 +601,7 @@ class PPO(nn.Module):
                             policy_loss = -torch.min(surr1, surr2)[valid_point_mask]
                         else:
                             policy_loss = -torch.where(
-                                (KL >= self.self.config["max_kl_div"]) & (ratios * adv > 1 * adv), # 1 for ratios of old policy to old policy
+                                (KL >= self.self.config["max_kl_div"]) & (ratios * adv > clip_mean * adv), # 1 for ratios of old policy to old policy
                                 ratios * adv - self.config["policy_slope"] * KL,
                                 ratios * adv - self.config["max_kl_div"]
                             )[valid_point_mask]
@@ -543,7 +635,6 @@ class PPO(nn.Module):
                         log_ratio = seq_log_probs - seq_old_log_probs
                         log_ratio = log_ratio[seq_mask == 1]
                         approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy().item()
-                        mean_ratio = (torch.abs(torch.exp(log_ratio) - 1)).mean().cpu().numpy().item()
                         kl_divs.append(approx_kl_div)
                         if (
                             abs(approx_kl_div) > 1.5 * self.config["max_kl_div"]
@@ -580,6 +671,25 @@ class PPO(nn.Module):
         if self.config["use_obs_max"]:
             self.update_obs_max()
 
+        self.adapt_factor = 0.03
+        self.adapt_maxthresh = 1.0
+        self.adapt_minthresh = 0.4
+        # if tv > (self.adapt_maxthresh * (0.5*self.eps_clip)):
+        #     for param_group in self.optimizer.param_groups:
+        #         lr_new = (param_group["lr"] / 
+        #             (1+self.adapt_factor))
+        #         param_group['lr'] = lr_new
+
+        #     if self.writer is not None:
+        #         self.writer.add_scalar("train/lr", lr_new, optim_epoch)
+        # elif tv < (self.adapt_minthresh * (0.5*self.eps_clip)):
+        #     for param_group in self.optimizer.param_groups:
+        #         lr_new = (param_group["lr"] * 
+        #             (1+self.adapt_factor))
+        #         param_group['lr'] = lr_new
+            
+        #     if self.writer is not None:
+        #         self.writer.add_scalar("train/lr", lr_new, optim_epoch)
                 
         print(
             "Policy Loss: "
@@ -604,6 +714,7 @@ class PPO(nn.Module):
             self.writer.add_scalar("train/KL_div", np.mean(kl_divs), optim_epoch)
             self.writer.add_scalar("train/explained_var", explained_var, optim_epoch)
             self.writer.add_scalar("train/clip_fraction", np.mean(clip_fractions), optim_epoch)
+            self.writer.add_scalar("train/tv", tv, optim_epoch)
 
     def prepareData(self):
         if type(self.memory[list(self.memory.keys())[0]]) == TensorMemory:
@@ -691,7 +802,76 @@ class PPO(nn.Module):
             advantages[:, t] = adv
 
         return advantages
+    
+    def calculate_vtrace_advantages(self, rewards, values, next_values, old_probs, current_probs, actions, terminated, truncated, discount_factor, trace_decay, clip_rho_threshold):
+        advantages = torch.zeros(rewards.shape)
+        returns = torch.zeros(rewards.shape)
+        dones = torch.logical_or(terminated, truncated)
+
+        rho = torch.ones_like(rewards[:, -1])
+        adv = (next_values[:, -1] - values[: , -1]) * (~terminated[:, -1]).int()
+        for t in reversed(range(rewards.size(1))):
+            adv = adv * (~dones[:, t]).int()
+
+            old_action_prob = torch.gather(old_probs[:, -1], -1, actions[:, t][..., None]).squeeze()
+            action_prob = torch.gather(current_probs[:, -1], -1, actions[:, t][..., None]).squeeze()
+            current_rho = torch.min(torch.fill(torch.ones_like(action_prob), clip_rho_threshold), action_prob / old_action_prob)
+            rho = torch.where(dones[:, t], current_rho, rho * current_rho)
+            
+            delta = (rewards[:, t] + (discount_factor * next_values[:, t] * (~terminated[:, -1]).int()) - values[:, t])
+            advantages[:, t] = (delta + discount_factor * adv * rho)
+            returns[:, t] = rewards[:, t] + discount_factor * adv * rho
+            adv = advantages[:, t]
+        return advantages, returns
+    
+    def calculate_v_trace_returns_impala(self, rewards, values, next_values, old_probs, current_probs, actions, terminated, truncated, discount_factor, trace_decay, clip_rho_threshold):
+        dones = torch.logical_or(terminated, truncated)
+        R = next_values[:, -1] * (~terminated[:, -1]).int()
+        returns = torch.zeros(rewards.shape)
+
+        for t in reversed(range(rewards.size(1))):
+            R = R * (~dones[:, t]).int() + next_values[:, t] * truncated[:, t].int()
+
+            old_action_prob = torch.gather(old_probs[:, -1], -1, actions[:, t][..., None]).squeeze()
+            action_prob = torch.gather(current_probs[:, -1], -1, actions[:, t][..., None]).squeeze()
+            c = trace_decay * torch.clamp(action_prob/old_action_prob, max=1.0)
+            deltaV = torch.clamp(action_prob/old_action_prob, max=1.0) * (rewards[:, t] + discount_factor * next_values[:, t] * (~terminated[:, t]).int() - values[:, t])
+            R = values[:, t] + deltaV + discount_factor * c * (R - next_values[:, t]) * (~terminated[:, t]).int()
+            returns[:, t] = R
+        return returns
         
+    def gae_vtrace(self, actions,next_values,rewards,terminated, truncated, current_probs, old_probs,gamma,lam,is_trunc, values):
+        """Calculates off-policy GAE with V-trace for trajectory."""
+        dones = torch.logical_or(terminated, truncated)
+        neglogp_pik = torch.gather(old_probs, -1, actions[..., None]).squeeze()
+        action_prob = torch.gather(current_probs, -1, actions[..., None]).squeeze()
+
+        ratio = np.exp(action_prob - neglogp_pik)
+        ratio_trunc = np.minimum(ratio,is_trunc)
+
+        n = ratio.shape[0]
+        ones_U = np.triu(np.ones((n,n)),0)
+        
+        rate_L = np.tril(np.ones((n,n))*gamma*lam,-1)
+        rates = np.tril(np.cumprod(rate_L+ones_U,axis=0),0)
+
+        ratio_trunc_repeat = np.repeat(np.expand_dims(ratio_trunc,1),n,axis=1)
+        ratio_trunc_L = np.tril(ratio_trunc_repeat,-1)
+        ratio_trunc_prods = np.tril(np.cumprod(ratio_trunc_L+ones_U,axis=0),0)
+
+        V = values
+        Vp = next_values
+
+        delta = rewards + gamma * (1-terminated.int()) * Vp - V
+
+        intermediate = rates * ratio_trunc_prods * np.expand_dims(delta,axis=1)
+        adv = torch.sum(torch.from_numpy(intermediate) ,axis=0)
+        rtg = adv * ratio_trunc + V
+
+        adv = adv.float()
+        rtg = rtg.float()
+
+        return adv, rtg
     
 def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
     assert y_true.ndim == 1 and y_pred.ndim == 1

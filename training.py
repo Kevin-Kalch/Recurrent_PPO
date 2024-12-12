@@ -101,6 +101,7 @@ def train(config, writer: SummaryWriter = None):
             hidden_states = new_h
 
         if epoch >= config["start_epoch"]:
+            agent.memory = {k: v for k, v in sorted(agent.memory.items(), key=lambda item: item[0])}
             agent.model.train()
             agent.train_epochs_bptt(epoch)
             
@@ -111,7 +112,16 @@ def train(config, writer: SummaryWriter = None):
                     h_state = agent.memory[i].hidden_state[config["steps_per_env"]-1].unsqueeze(0).to(agent.device)
                     _, _, _, _, new_h = agent.model(state, None, h_state)
                     hidden_states[i] = new_h.detach().cpu()
-            agent.memory = {}
+            num_prior_policies = 4
+            for mem_key in reversed(list(agent.memory.keys())):
+                new_key = mem_key + config["num_envs"]
+                if new_key < config["num_envs"] * num_prior_policies:
+                    agent.memory[new_key] = agent.memory.pop(mem_key)
+                else:
+                    agent.memory.pop(mem_key)
+            agent.memory = {k: v for k, v in sorted(agent.memory.items(), key=lambda item: item[0])}
+
+            #agent.memory = {}
         else:
             agent.memory = {}
 
