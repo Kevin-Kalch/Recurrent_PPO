@@ -16,6 +16,13 @@ class OutsideViewport(gymnasium.Wrapper):
             terminated = True
             reward = -100
         return next_state, reward, terminated, truncated, info
+    
+class TruncationPenalty(gymnasium.Wrapper):
+    def step(self, action):
+        next_state, reward, terminated, truncated, info = super().step(action)
+        if truncated:
+            reward = -50
+        return next_state, reward, terminated, truncated, info
 
 class LastAction(gymnasium.Wrapper):
     def __init__(self, env: gymnasium.Env):

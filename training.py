@@ -4,17 +4,19 @@ import torch
 from model import PPO
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-from lunar_lander_helpers import VelHidden, LastAction
+from lunar_lander_helpers import VelHidden, LastAction, TruncationPenalty
 
 torch.manual_seed(4020)
 #import flappy_bird_gymnasium
 
-def create_envs(num=4):
+def create_envs(num=4, test=False):
     envs = []
     for i in range(num):
         def gen():
-            env = LastAction(VelHidden(gymnasium.make('LunarLander-v2')))
-            #env = LastAction(gymnasium.make('FlappyBird-v0', use_lidar=True))
+            env = VelHidden(gymnasium.make('LunarLander-v2'))
+            if test is False:
+                env = TruncationPenalty(env)
+            env = LastAction(env)
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
         envs.append(gen)
@@ -51,8 +53,6 @@ def train(config, writer: SummaryWriter = None):
             global_step += 1 * config["num_envs"]
             action, action_prop, new_h = agent.select_action(states, None, hidden_states, eval=False)
             next_state, reward, terminated, truncated, info = envs.step(action)
-
-            
 
             agent_reward = reward 
             agent_reward = (agent_reward / mean_return)
@@ -125,7 +125,7 @@ def train(config, writer: SummaryWriter = None):
         epoch += 1
 
         # Testing
-        test_env = create_envs(num=1)
+        test_env = create_envs(num=1, test=True)
         env_state, _ = test_env.reset()
         ep_reward = 0
         done=False

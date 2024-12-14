@@ -51,11 +51,14 @@ config = {
     "value_weight": 1.0,
     "entropy_weight": 0,
     "early_stopping": True,
-    "rnd_weight": 0.1,
+    "rnd_weight": 0.0,
     "max_kl_div": 0.05,
-    "es_restore_model": True,
-    "max_grad_norm": 1.0,
+    "es_restore_model": False,
+    "max_grad_norm": 2.0,
     "use_obs_max": True,
+    # Truly PPO
+    "use_truly_ppo": True,
+    "policy_slope": 20,
     # Cyclic learning rate
     "use_scheduler": False,
     "base_lr": 3e-5,
@@ -100,12 +103,12 @@ if __name__ == "__main__":
     config["comment"] = args.comment + " " + str(args.index)
     set_pytorch_env()
     set_seed(4020)
-    config["comment"] = "New training, old params and model, more params adjusted, try tanh, fixed es, without intrinsic"
+    config["comment"] = "Baseline without rollback, Truly v3 20 slope 0.05 KL, without rnd, low gamma, noisy, trunc penalty"
     writer = SummaryWriter(
         "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
     )
     writer.add_text("config", json.dumps(config, indent=4))
     writer.add_text("comment", config["comment"])
-    #writer = None
+    # writer = None
     #profile_train()
     train(config, writer)

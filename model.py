@@ -498,21 +498,22 @@ class PPO(nn.Module):
                     valid_point_mask = torch.logical_and(torch.logical_and(lm, ent_mask), actn_req)
 
                     ratios = torch.exp(log_probs - b_old_log_probs)
+                    KL = (probs * (torch.log(probs) - torch.log(b_old_probs.to(self.device)))).sum(dim=-1)
                     surr1 = ratios * adv
                     surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * adv
                     clip_fraction = (torch.abs(ratios[valid_point_mask] - 1) > self.eps_clip).float().mean()
                     clip_fractions.append(clip_fraction.item())
 
                     if actn_req.sum() > 0:
-                        policy_loss = -torch.min(surr1, surr2)[valid_point_mask]
-                        # pred_value_clipped = values[:, i].to(self.device) + torch.clamp(
-                        #     pred_value - values[:, i].to(self.device),
-                        #     -self.eps_clip,
-                        #     self.eps_clip,
-                        # )
-                        # value_loss_unclipped = (pred_value - returns[:, i].to(self.device)).pow(2)
-                        # value_loss_clipped = (pred_value_clipped - returns[:, i].to(self.device)).pow(2)
-                        # value_loss = 0.5 * torch.max(value_loss_unclipped, value_loss_clipped)[valid_point_mask]
+                        if not self.config["use_truly_ppo"]:
+                            policy_loss = -torch.min(surr1, surr2)[valid_point_mask]
+                        else:
+                            policy_loss = -torch.where(
+                                (KL >= self.self.config["max_kl_div"]) & (ratios * adv > 1 * adv), # 1 for ratios of old policy to old policy
+                                ratios * adv - self.config["policy_slope"] * KL,
+                                ratios * adv - self.config["max_kl_div"]
+                            )[valid_point_mask]
+                        
                         value_loss = (returns[:, i].to(self.device)-pred_value).pow(2)[valid_point_mask]
                         ent_loss = -torch.clamp(ent, max=1.0)[valid_point_mask]
                         rnd_loss = (rnd_target_values - rnd_pred_values).pow(2)[valid_point_mask]
@@ -542,6 +543,7 @@ class PPO(nn.Module):
                         log_ratio = seq_log_probs - seq_old_log_probs
                         log_ratio = log_ratio[seq_mask == 1]
                         approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy().item()
+                        mean_ratio = (torch.abs(torch.exp(log_ratio) - 1)).mean().cpu().numpy().item()
                         kl_divs.append(approx_kl_div)
                         if (
                             abs(approx_kl_div) > 1.5 * self.config["max_kl_div"]

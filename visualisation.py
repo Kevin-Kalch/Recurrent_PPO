@@ -11,7 +11,7 @@ def main():
     obs_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
     agent = PPO(obs_dim, action_num, config, None)
-    agent.load_model("Models/LunarLander-v2-New training, old params and model, more params adjusted, try tanh, fixed es-agent_300")
+    agent.load_model("Models/LunarLander-v2-Baseline without rollback, Truly v3 20 slope-agent_1000")
     agent.model.remove_noise()
     agent.model.eval()
 
