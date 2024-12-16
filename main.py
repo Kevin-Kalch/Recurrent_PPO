@@ -22,7 +22,7 @@ os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "500"
 
 
 config = {
-    "experiment": "LunarLander-v2",
+    "experiment": "LunarLander-v2-GePPO",
     "comment": "",
     # Environment
     "num_envs": 4,
@@ -40,17 +40,17 @@ config = {
     "use_memory": True,
     # Training
     "start_epoch": 5,
-    "eps_clip": 0.1,
+    "eps_clip": 0.2,
     "lr": 3e-4,
     "gamma": 0.99,
     "batches_per_sequence": 4,
-    "ppo_epochs": 3,
+    "ppo_epochs": 5,
     "recalculate_returns": False,
     "recalculate_advantages": True,
     "policy_weight": 1.0,
     "value_weight": 1.0,
     "entropy_weight": 0,
-    "early_stopping": True,
+    "early_stopping": False,
     "rnd_weight": 0.0,
     "max_kl_div": 0.05,
     "es_restore_model": False,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     config["comment"] = args.comment + " " + str(args.index)
     set_pytorch_env()
     set_seed(4020)
-    config["comment"] = "GePPO Test, v-trace, geppo adv, mc rets"
+    config["comment"] = " Truly GePPO, with weights, full geppo calcs, LR"
     writer = SummaryWriter(
        "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
     )

@@ -62,30 +62,30 @@ class ACNetwork(nn.Module):
         if isinstance(num_in, int): # Linear input
             self.body = nn.Sequential(
                 self.init_weights(nn.Linear(num_in, 256)),
-                nn.Tanh(),
+                nn.LeakyReLU(),
                 self.init_weights(nn.Linear(256, 256)),
-                nn.Tanh(),
+                nn.LeakyReLU(),
                 self.init_weights(nn.Linear(256, 128)),
-                nn.Tanh(),
+                nn.LeakyReLU(),
             )
         else:
             self.body = nn.Sequential(
                 self.init_weights(nn.Conv2d(num_in[0], 32, 4, stride=2)),
-                nn.Tanh(),
+                nn.LeakyReLU(),
                 self.init_weights(nn.Conv2d(32, 64, 4, stride=2)),
-                nn.Tanh(),
+                nn.LeakyReLU(),
                 self.init_weights(nn.Conv2d(64, 64, 3, stride=2)),
-                nn.Tanh(),
+                nn.LeakyReLU(),
                 nn.Flatten(start_dim=1),
                 self.init_weights(nn.Linear(39168, 512)),
-                nn.Tanh(),
+                nn.LeakyReLU(),
             )          
 
         self.core = nn.Sequential(
             self.init_weights(nn.Linear(128+self.config["hidden_size"]+self.num_actions, 256)), 
-            nn.Tanh(),
+            nn.LeakyReLU(),
             self.init_weights(nn.Linear(256, 256)),
-            nn.Tanh(),
+            nn.LeakyReLU(),
         )
         self.rnn = nn.GRUCell(256, self.config["hidden_size"])
         for name, param in self.rnn.named_parameters():
@@ -96,26 +96,26 @@ class ACNetwork(nn.Module):
 
         self.policy = nn.Sequential(
             self.init_weights(nn.Linear(256, 64)),
-            nn.Tanh(),
+            nn.LeakyReLU(),
             self.init_weights(NoisyLinear(64, num_actions), std=0.1),
             nn.Softmax(dim=1)
         )
 
         self.value = nn.Sequential(
             self.init_weights(nn.Linear(256, 64)),
-            nn.Tanh(),
+            nn.LeakyReLU(),
             self.init_weights(nn.Linear(64, 1), std=1),
         )
 
         self.rnd_target = nn.Sequential(
             self.init_weights(nn.Linear(256, 64)),
-            nn.Tanh(),
+            nn.LeakyReLU(),
             self.init_weights(nn.Linear(64, 1), std=1),
         )
 
         self.rnd_pred = nn.Sequential(
             self.init_weights(nn.Linear(256, 64)),
-            nn.Tanh(),
+            nn.LeakyReLU(),
             self.init_weights(nn.Linear(64, 1), std=1),
         )
 
@@ -197,6 +197,7 @@ class TensorMemory:
         )
 
         self.action_required = torch.zeros(num_samples, dtype=torch.bool)
+        self.weight = torch.ones(num_samples, dtype=torch.float32)
 
     def append(
         self,
@@ -237,6 +238,7 @@ class ListMemory:
         self.truncated = []
         self.probs = []
         self.action_required = []
+        self.weight = []
         self.config = config
 
     def append(
@@ -267,6 +269,7 @@ class ListMemory:
         self.truncated.append(truncated)
         self.probs.append(probs)
         self.action_required.append(action_required)
+        self.weight.append(1.0)
 
 
 class PPO(nn.Module):
@@ -360,7 +363,7 @@ class PPO(nn.Module):
     def train_epochs_bptt(self, optim_epoch):
         self.model = self.model.to(self.device)
 
-        states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required = self.prepareData()
+        states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required, weights = self.prepareData()
         current_game_policy_probs = torch.zeros_like(old_probs)
         batch_seq_length = states.size(1) // self.config["batches_per_sequence"]
 
@@ -496,12 +499,12 @@ class PPO(nn.Module):
                             geppo_returns.append(gret)
                         geppo_advs = torch.stack(geppo_advs, dim=0)
                         geppo_returns = torch.stack(geppo_returns, dim=0)
-                        # if epoch == 0 or self.config["recalculate_returns"]:
-                        #     returns = returns
+                        if epoch == 0 or self.config["recalculate_returns"]:
+                            returns = geppo_returns
                         if epoch == 0 or self.config["recalculate_advantages"]:
                             advantages = geppo_advs
-                        if epoch == 0 or self.config["recalculate_returns"]:
-                             returns = rets
+                        # if epoch == 0 or self.config["recalculate_returns"]:
+                        #      returns = rets
                         # advantages = (advantages - advantages[loss_mask == 1].mean()) / (advantages[loss_mask == 1].std() + 1e-8)
                         # advantages = torch.clamp(advantages, torch.quantile(advantages[loss_mask.cpu()==1], 0.05), torch.quantile(advantages[loss_mask.cpu()==1], 0.95))
 
@@ -518,8 +521,8 @@ class PPO(nn.Module):
 
                         offpol_ratio = torch.exp(current_policy_log_prob - old_log_probs)
                         ratios = torch.exp(active_policy_log_prob - old_log_probs)
-                        adv_mean = (advantages * offpol_ratio).mean() / offpol_ratio.mean()
-                        adv_std = (advantages * offpol_ratio).std() + 1e-8
+                        adv_mean = (advantages * offpol_ratio * weights).mean() / (offpol_ratio * weights).mean()
+                        adv_std = (advantages * offpol_ratio * weights).std() + 1e-8
                         adv_mean = adv_mean.detach()
                         adv_std = adv_std.detach()
 
@@ -527,7 +530,11 @@ class PPO(nn.Module):
                         #adv_std = advantages[loss_mask == 1].std() + 1e-8
 
                         ratio_diff = torch.abs(ratios - offpol_ratio)
-                        tv = 0.5 * ratio_diff.pow(2).mean()
+                        tv = 0.5 * (weights * ratio_diff).pow(2).mean()
+                        if tv > (0.5*self.eps_clip):
+                            print("GePPO early stop")
+                            continue_training = False
+                            break
                     if continue_training == False or epoch == self.config["ppo_epochs"]:
                         break
 
@@ -551,6 +558,7 @@ class PPO(nn.Module):
                     state = states[:, i, :].to(self.device)
                     last_action = last_actions[:, i, :].to(self.device)
                     current_policy_prob = current_game_policy_probs[:, i, :]
+                    b_weights = weights[:, i].to(self.device)
                     probs, pred_value, rnd_target_values, rnd_pred_values, h = self.model(state, last_action, h)
 
                     pred_value = pred_value.squeeze()
@@ -581,18 +589,16 @@ class PPO(nn.Module):
                     valid_point_mask = torch.logical_and(torch.logical_and(lm, ent_mask), actn_req)
 
                     ratios = torch.exp(log_probs - b_old_log_probs)
-                    KL = (probs * (torch.log(probs) - torch.log(b_old_probs.to(self.device)))).sum(dim=-1)
-                    surr1 = ratios * adv
-                    surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * adv
-                    
                     current_policy_log_prob = torch.log(
                         torch.gather(current_policy_prob, -1, actions[:, i][..., None])
                     ).squeeze().to(self.device)
                     seq_old_log_probs[:, i % batch_seq_length] = current_policy_log_prob
                     clip_mean = torch.exp(current_policy_log_prob - b_old_log_probs)
+                    KL = (probs * (torch.log(probs) - torch.log(b_old_probs.to(self.device)))).sum(dim=-1)
 
-                    surr1 = ratios * (adv - adv_mean) / (adv_std + 1e-8)
-                    surr2 = torch.clamp(ratios, clip_mean - self.eps_clip, clip_mean + self.eps_clip) * (adv - adv_mean) / (adv_std + 1e-8)
+                    adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+                    surr1 = ratios * adv
+                    surr2 = torch.clamp(ratios, clip_mean - self.eps_clip, clip_mean + self.eps_clip) * adv
                     clip_fraction = (torch.abs(ratios[valid_point_mask] - 1) > self.eps_clip).float().mean()
                     clip_fractions.append(clip_fraction.item())
 
@@ -601,20 +607,20 @@ class PPO(nn.Module):
                             policy_loss = -torch.min(surr1, surr2)[valid_point_mask]
                         else:
                             policy_loss = -torch.where(
-                                (KL >= self.self.config["max_kl_div"]) & (ratios * adv > clip_mean * adv), # 1 for ratios of old policy to old policy
+                                (KL >= self.config["max_kl_div"]) & (ratios * adv > clip_mean * adv), # 1 for ratios of old policy to old policy
                                 ratios * adv - self.config["policy_slope"] * KL,
                                 ratios * adv - self.config["max_kl_div"]
                             )[valid_point_mask]
                         
                         value_loss = (returns[:, i].to(self.device)-pred_value).pow(2)[valid_point_mask]
-                        ent_loss = -torch.clamp(ent, max=1.0)[valid_point_mask]
+                        ent_loss = -torch.clamp(ent, max=1.0)[valid_point_mask] 
                         rnd_loss = (rnd_target_values - rnd_pred_values).pow(2)[valid_point_mask]
                         loss = (
                             self.config["policy_weight"] * policy_loss
                             + self.config["value_weight"] * value_loss
                             + self.config["entropy_weight"] * ent_loss
                             + self.config["rnd_weight"] * rnd_loss
-                        )
+                        ) * b_weights[valid_point_mask]
                         loss = loss.mean() / batch_seq_length
                         total_loss += loss
 
@@ -728,9 +734,10 @@ class PPO(nn.Module):
             terminated = torch.stack([self.memory[key].terminated for key in sorted(self.memory.keys())])
             truncated = torch.stack([self.memory[key].truncated for key in sorted(self.memory.keys())])
             actions_required = torch.stack([self.memory[key].action_required for key in sorted(self.memory.keys())])
+            weights = torch.stack([self.memory[key].weight for key in sorted(self.memory.keys())])
             dones = torch.logical_or(terminated, truncated)
             loss_mask = torch.where(torch.tensor(np.isclose(states.sum(dim=list(range(len(states.shape)))[2:]), 0)), 0.0, 1.0)
-            return states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required
+            return states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required, weights
         elif type(self.memory[list(self.memory.keys())[0]]) == ListMemory:
             max_history_length = max([len(self.memory[key].state) for key in self.memory.keys()])
             states = torch.zeros((len(self.memory.keys()), max_history_length, *(self.state_size)), dtype=torch.float32)
@@ -744,6 +751,7 @@ class PPO(nn.Module):
             truncated = torch.zeros((len(self.memory.keys()), max_history_length), dtype=torch.bool)
             loss_mask = torch.zeros((len(self.memory.keys()), max_history_length), dtype=torch.float32)
             actions_required = torch.zeros((len(self.memory.keys()), max_history_length), dtype=torch.bool)
+            weights = torch.ones((len(self.memory.keys()), max_history_length), dtype=torch.float32)
             for i, key in enumerate(sorted(self.memory.keys())):
                 states[i, :len(self.memory[key].state)] = torch.stack(self.memory[key].state)
                 hidden_states[i, :len(self.memory[key].state)] = torch.stack(self.memory[key].hidden_state).squeeze()
@@ -756,8 +764,9 @@ class PPO(nn.Module):
                 truncated[i, :len(self.memory[key].state)] = torch.from_numpy(np.asarray(self.memory[key].truncated)).squeeze()
                 loss_mask[i, :len(self.memory[key].state)] = torch.from_numpy(np.isclose((np.asarray(self.memory[key].state)).sum(dim=list(range(len(states.shape)))[2:]), 0)).squeeze()
                 actions_required[i, :len(self.memory[key].state)] = torch.from_numpy(np.asarray(self.memory[key].action_required)).squeeze()
+                weights[i, :len(self.memory[key].state)] = torch.from_numpy(np.asarray(self.memory[key].weight)).squeeze()
             dones = torch.logical_or(terminated, truncated)
-            return states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required
+            return states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required, weights
 
     
     def save_model(self, path):
@@ -767,7 +776,7 @@ class PPO(nn.Module):
         self.load_state_dict(torch.load(path + ".pt"))
 
     def update_obs_max(self):
-        states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required = self.prepareData()
+        states, hidden_states, old_probs, actions, last_actions, next_states, rewards, terminated, truncated, dones, loss_mask, actions_required, weights = self.prepareData()
         states = states * self.obs_max
 
         old_obs_max = self.obs_max.clone()
