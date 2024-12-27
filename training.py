@@ -5,6 +5,7 @@ from model import PPO
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from lunar_lander_helpers import VelHidden, LastAction, TruncationPenalty
+from gymnasium.wrappers import TimeAwareObservation
 
 torch.manual_seed(4020)
 #import flappy_bird_gymnasium
@@ -13,10 +14,8 @@ def create_envs(num=4, test=False):
     envs = []
     for i in range(num):
         def gen():
-            env = VelHidden(gymnasium.make('LunarLander-v2'))
-            if test is False:
-                env = TruncationPenalty(env)
-            env = LastAction(env)
+            env = LastAction(VelHidden(gymnasium.make('LunarLander-v2')))
+            env = TimeAwareObservation(LastAction(env))
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
         envs.append(gen)

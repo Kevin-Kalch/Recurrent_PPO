@@ -509,7 +509,7 @@ class PPO(nn.Module):
                             policy_loss = -torch.min(surr1, surr2)[valid_point_mask]
                         else:
                             policy_loss = -torch.where(
-                                (KL >= self.self.config["max_kl_div"]) & (ratios * adv > 1 * adv), # 1 for ratios of old policy to old policy
+                                (KL >= self.config["max_kl_div"]) & (ratios * adv > 1 * adv), # 1 for ratios of old policy to old policy
                                 ratios * adv - self.config["policy_slope"] * KL,
                                 ratios * adv - self.config["max_kl_div"]
                             )[valid_point_mask]
@@ -534,7 +534,7 @@ class PPO(nn.Module):
                 done_mask = (dones[:, i] == True).to(self.device).int().reshape(-1)
                 not_done_mask = (dones[:, i] == False).to(self.device).int().reshape(-1)
                 if i != (states.size(1)-1):
-                    h = h * not_done_mask[:, None] * lm[:, None] + hidden_states[not_done_mask.cpu()][:, i + 1, :].to(self.device) * not_done_mask[:, None] * (~lm[:, None].bool()).int()
+                    h = (h * not_done_mask[:, None] + hidden_states[:, i + 1, :].to(self.device) * done_mask[:, None]) * lm[:, None]
                 
                 seq_mask[:, i % batch_seq_length] = torch.logical_and(lm, actn_req).float()
 

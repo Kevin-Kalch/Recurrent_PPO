@@ -49,7 +49,7 @@ config = {
     "recalculate_advantages": True,
     "policy_weight": 1.0,
     "value_weight": 1.0,
-    "entropy_weight": 0,
+    "entropy_weight": 0.0,
     "early_stopping": True,
     "rnd_weight": 0.0,
     "max_kl_div": 0.05,
@@ -57,7 +57,7 @@ config = {
     "max_grad_norm": 2.0,
     "use_obs_max": True,
     # Truly PPO
-    "use_truly_ppo": True,
+    "use_truly_ppo": False,
     "policy_slope": 20,
     # Cyclic learning rate
     "use_scheduler": False,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     config["comment"] = args.comment + " " + str(args.index)
     set_pytorch_env()
     set_seed(4020)
-    config["comment"] = "Baseline without rollback, Truly v3 20 slope 0.05 KL, without rnd, low gamma, noisy, trunc penalty"
+    config["comment"] = "Normal PPO"
     writer = SummaryWriter(
         "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
     )
