@@ -275,9 +275,6 @@ class PPO(nn.Module):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
         self.model = ACNetwork(num_in, num_actions, config)
         self.model = self.model.to(self.device)
-        # self.optimizer = torch.optim.Adam(
-        #     self.model.parameters(), lr=config["lr"], fused=True
-        # )
         self.optimizer = torch.optim.Adam(
             [
                 {"params": self.model.body.parameters(), "lr": 3e-4},
@@ -289,14 +286,14 @@ class PPO(nn.Module):
                 {"params": self.model.rnn.parameters(), "lr": 3e-4},
             ]
         )
-
-        # self.scheduler = torch.optim.lr_scheduler.CyclicLR(
-        #     self.optimizer,
-        #     base_lr=config["base_lr"],
-        #     max_lr=config["max_lr"],
-        #     step_size_up=config["step_size_up"],
-        #     cycle_momentum=False,
-        # )
+        if config["use_scheduler"]:
+            self.scheduler = torch.optim.lr_scheduler.CyclicLR(
+                self.optimizer,
+                base_lr=config["base_lr"],
+                max_lr=config["max_lr"],
+                step_size_up=config["step_size_up"],
+                cycle_momentum=False,
+            )
         self.gamma = config["gamma"]
         self.eps_clip = config["eps_clip"]
         self.memory = {}
