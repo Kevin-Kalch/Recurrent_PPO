@@ -275,9 +275,21 @@ class PPO(nn.Module):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
         self.model = ACNetwork(num_in, num_actions, config)
         self.model = self.model.to(self.device)
+        # self.optimizer = torch.optim.Adam(
+        #     self.model.parameters(), lr=config["lr"], fused=True
+        # )
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=config["lr"], fused=True
+            [
+                {"params": self.model.body.parameters(), "lr": 3e-4},
+                {"params": self.model.core.parameters(), "lr": 3e-4},
+                {"params": self.model.policy.parameters(), "lr": 3e-4},
+                {"params": self.model.value.parameters(), "lr": 3e-4},
+                {"params": self.model.rnd_target.parameters(), "lr": 3e-4},
+                {"params": self.model.rnd_pred.parameters(), "lr": 3e-4},
+                {"params": self.model.rnn.parameters(), "lr": 3e-4},
+            ]
         )
+
         # self.scheduler = torch.optim.lr_scheduler.CyclicLR(
         #     self.optimizer,
         #     base_lr=config["base_lr"],
@@ -576,10 +588,6 @@ class PPO(nn.Module):
         
         for i, key in enumerate(sorted(self.memory.keys())):
             self.memory[key].hidden_state = hidden_states[i].cpu()
-
-        if self.config["use_obs_max"]:
-            self.update_obs_max()
-
                 
         print(
             "Policy Loss: "

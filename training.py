@@ -151,3 +151,6 @@ def train(config, writer: SummaryWriter = None):
             agent.save_model(
                 "Models/" + config["experiment"] + "-" + config["comment"] + "-agent_" + str(epoch)
             )
+
+        if config["use_obs_max"]:
+            agent.update_obs_max()
