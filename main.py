@@ -103,7 +103,7 @@ if __name__ == "__main__":
     config["comment"] = args.comment + " " + str(args.index)
     set_pytorch_env()
     set_seed(4020)
-    config["comment"] = "Normal PPO"
+    config["comment"] = "PPO without LayerNorm"
     writer = SummaryWriter(
         "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
     )

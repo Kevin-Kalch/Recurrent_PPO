@@ -110,10 +110,6 @@ def train(config, writer: SummaryWriter = None):
                     h_state = agent.memory[i].hidden_state[config["steps_per_env"]-1].unsqueeze(0).to(agent.device)
                     _, _, _, _, new_h = agent.model(state, None, h_state)
                     hidden_states[i] = new_h.detach().cpu()
-            agent.memory = {}
-        else:
-            agent.memory = {}
-
         if (
             epoch < config["reward_scaling_factor_max_epoch_sampling"]
             and len(mean_returns) > 0
@@ -154,3 +150,5 @@ def train(config, writer: SummaryWriter = None):
 
         if config["use_obs_max"]:
             agent.update_obs_max()
+
+        agent.memory = {}
