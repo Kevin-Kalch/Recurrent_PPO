@@ -14,8 +14,7 @@ def create_envs(num=4, test=False):
     envs = []
     for i in range(num):
         def gen():
-            env = LastAction(VelHidden(gymnasium.make('LunarLander-v2')))
-            env = TimeAwareObservation(LastAction(env))
+            env = LastAction(VelHidden(gymnasium.make('LunarLander-v3')))
             env = gymnasium.wrappers.RecordEpisodeStatistics(env)
             return env
         envs.append(gen)
@@ -70,11 +69,6 @@ def train(config, writer: SummaryWriter = None):
                 agent.record_obs(states[i], hidden_states[i], action[i], None, agent_reward[i], next_state[i], terminated[i], truncated[i], action_prop[i], True, i, step)
                 if info != {}:
                     if terminated[i] or truncated[i]: 
-                        agent.memory[i].next_state[step] = torch.FloatTensor(info["final_observation"][i]) / agent.obs_max
-                        rewards.appendleft(info["final_info"][i]["episode"]["r"][0])
-                        if writer is not None:
-                            writer.add_scalar("episodic_return", info["final_info"][i]["episode"]["r"], global_step)
-                            writer.add_scalar("episodic_length", info["final_info"][i]["episode"]["l"], global_step)
                         new_h[i] = torch.zeros((1, config["hidden_size"])).to(agent.device)
 
                         # Calculate return
@@ -92,6 +86,16 @@ def train(config, writer: SummaryWriter = None):
                             R = intrinsic_rewards_per_env[i][t] + agent.gamma * R
                             returns.insert(0, R)
                         mean_intrinsic_returns.append(np.mean(np.abs(returns)))
+
+                        # Calculate non discounted return
+                        R = 0
+                        for t in reversed(range(len(rewards_per_env[i]))):
+                            R = R + rewards_per_env[i][t]
+                        rewards.appendleft(R)
+                        
+                        if writer is not None:
+                            writer.add_scalar("episodic_return", R, global_step)
+                            writer.add_scalar("episodic_length", len(rewards_per_env[i]), global_step)
 
                         rewards_per_env[i] = []
                         intrinsic_rewards_per_env[i] = []

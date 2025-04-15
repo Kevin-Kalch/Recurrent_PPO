@@ -22,11 +22,11 @@ os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "500"
 
 
 config = {
-    "experiment": "LunarLander-v2",
+    "experiment": "LunarLander-v3",
     "comment": "",
     # Environment
     "num_envs": 16,
-    "num_epochs": 1000,
+    "num_epochs": 1500,
     "steps_per_env": 128,
     "use_intrinsic_reward": False,
     "model_saving_interval": 25,
@@ -46,7 +46,7 @@ config = {
     "batches_per_sequence": 4,
     "ppo_epochs": 10,
     "recalculate_returns": False,
-    "recalculate_advantages": True,
+    "recalculate_advantages": False,
     "policy_weight": 1.0,
     "value_weight": 1.0,
     "entropy_weight": 0.0,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     config["comment"] = args.comment + " " + str(args.index)
     set_pytorch_env()
     set_seed(4020)
-    config["comment"] = "PPO without LayerNorm"
+    config["comment"] = "PPO Test, no recalc, not timeaware"
     writer = SummaryWriter(
         "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
     )
