@@ -281,7 +281,6 @@ class PPO(nn.Module):
                 {"params": self.model.core.parameters(), "lr": 3e-4},
                 {"params": self.model.policy.parameters(), "lr": 3e-4},
                 {"params": self.model.value.parameters(), "lr": 3e-4},
-                {"params": self.model.rnd_target.parameters(), "lr": 3e-4},
                 {"params": self.model.rnd_pred.parameters(), "lr": 3e-4},
                 {"params": self.model.rnn.parameters(), "lr": 3e-4},
             ]
@@ -485,7 +484,6 @@ class PPO(nn.Module):
                     log_probs = torch.log(
                         torch.gather(probs, -1, actions[:, i][..., None].to(self.device))
                     )
-                    ent = -(probs * torch.log(probs)).sum(dim=-1)
                     log_probs = log_probs.squeeze()
                     seq_log_probs[:, i % batch_seq_length] = log_probs
 
@@ -567,7 +565,7 @@ class PPO(nn.Module):
                             break
                     old_model = self.model.state_dict()
                     self.optimizer.zero_grad()
-                    total_loss.backward(retain_graph=True)
+                    total_loss.backward()
                     total_norm = 0
                     for p in self.model.parameters():
                         if p.grad is not None:
@@ -687,7 +685,7 @@ class PPO(nn.Module):
     def calculate_advantages(self, rewards, values, next_values, terminated, truncated, discount_factor, trace_decay):
         advantages = torch.zeros(rewards.shape)
         dones = torch.logical_or(terminated, truncated)
-        adv = (next_values[:, -1] - values[: , -1]) * (~terminated[:, -1]).int()
+        adv = torch.zeros(rewards[:, 0].shape)
 
         for t in reversed(range(rewards.size(1))):
             adv = adv * (~dones[:, t]).int()
@@ -696,7 +694,6 @@ class PPO(nn.Module):
             advantages[:, t] = adv
 
         return advantages
-        
     
 def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
     assert y_true.ndim == 1 and y_pred.ndim == 1

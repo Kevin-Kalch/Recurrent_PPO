@@ -47,7 +47,7 @@ config = {
     "ppo_epochs": 10,
     "recalculate_returns": False,
     "recalculate_advantages": False,
-    "policy_weight": 1.0,
+    "policy_weight": 0.5,
     "value_weight": 1.0,
     "entropy_weight": 0.0,
     "early_stopping": True,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     config["comment"] = args.comment + " " + str(args.index)
     set_pytorch_env()
     set_seed(4020)
-    config["comment"] = "PPO Test, no recalc, not timeaware"
+    config["comment"] = "PPO Test, zero init, half policy weight"
     writer = SummaryWriter(
         "Records/" + config["experiment"] + "/" + config["comment"], comment=config["comment"]
     )
